@@ -45,8 +45,9 @@ Other scripts include functions and code that are used by the main scripts. Thes
 # Getting started
 
 1. Download or fork a copy of files.
-2. Request access to Dynamics 365 for DCRS data and a data extract from NRS.  DMBI staff can access existing extracts from the DCRS HB report folder on the N Drive.
-3. In 01-Create HB Reportsv2, on row 15, run the section of the code 'hdr <<- "Ayrshire and Arran"' to set a named health board in the global environment. This will be needed to run other scripts. (yoy can also do this for the other health boards)
-4. Run the whole of 02-DCRS-HB-Report v1.14 which will automatically go to all other scripts and updates all charts, tables, and narrative for the current period.
-5. Run the whole of 01-Create HB Reportsv2 to create reports for all health boards
-6. If it's successful, report will be saved in the Reports folder. (UPDATE LINKS?)
+2. Create a Reports folder to have separate space for output reports
+3. Request access to Dynamics 365 for DCRS data and a data extract from NRS.  DMBI staff can access existing extracts from the DCRS HB report folder on the N Drive.
+4. In 01-Create HB Reportsv2, on row 15, run the section of the code 'hdr <<- "Ayrshire and Arran"' to set a named health board in the global environment. This will be needed to run other scripts. (yoy can also do this for the other health boards)
+5. Run the whole of 02-DCRS-HB-Report v1.14 which will automatically go to all other scripts and updates all charts, tables, and narrative for the current period.
+6. Run the whole of 01-Create HB Reportsv2 to create reports for all health boards
+7. If it's successful, report will be saved in the Reports folder. (UPDATE LINKS?)
