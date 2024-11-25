@@ -1,0 +1,806 @@
+---
+params:
+  hdr: hdr
+output:
+  officedown::rdocx_document:
+    reference_docx: "DCRS-HB-Template v1.0.docx"
+knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding })    
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.cap = TRUE)
+```
+
+```{r libraries, include=FALSE}
+#Loading packages required for the functions throughout the report 
+#install.packages("stringi")
+library(tidyverse)
+library(lubridate)
+library(knitr)
+library(scales)
+library(formatR)
+library(flextable)
+library(magrittr)
+library(officer)
+library(scales)
+library(dplyr)
+library(janitor)
+library(officedown)
+library(tiff)
+
+```
+
+```{r front page setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.cap = TRUE)
+
+cover1 <-
+  fp_text_lite(
+    color = "#004380",
+    font.family = "Calibri",
+    bold = TRUE,
+    font.size = 30
+  )
+cover2 <-
+  fp_text_lite(
+    color = "#0096DC",
+    font.family = "Calibri light",
+    bold = TRUE,
+    font.size = 20
+  )
+```
+
+```{r set report values}
+
+#Set Standard Values
+Board <- hdr
+year1 <- "01 Apr 2021 - 31 Mar 2022"
+year2 <- "01 Apr 2022 - 31 Mar 2023"
+year3 <- "01 Apr 2023 - 31 Mar 2024"
+y1 <- "7"
+y2 <- "8"
+y3 <- "9"
+sixmonth <- "01 Oct 2023 - 31 Mar 2024"
+end_date <- as.Date("2024-04-01")
+
+```
+
+```{r set working directory}
+#setwd("N:/Evidence/DMBI/Death Cert/Report - Healthboards Quarterly/his-dcrs-hb-annual")
+```
+
+```{r load hospital data}
+load("Data/DCRS_DATA_Loc_DIAG.Rda") 
+```
+
+```{r load source data and analysis}
+
+source("03-HB Standard Data.R")
+
+source("04-Part1 Tables.R")
+
+source("05-Part2 RunCharts.R")
+
+source("06-Part3 FunnelPlots2.R")
+
+source("07-Part4 Charts.R")
+
+```
+<br>
+
+![](HISLogo.jpg)
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+`r ftext("NHS", cover1)` `r ftext(params$hdr, cover1)`
+
+<br>
+
+`r ftext("Annual Review and NHS Board Inter Comparative Data Report", cover2)`
+
+<br>
+
+`r ftext(year3, cover2)`
+
+\newpage
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+© Healthcare Improvement Scotland 2024
+
+Published August 2024
+
+This document is licensed under the Creative Commons Attribution-Noncommercial-NoDerivatives 4.0 International Licence. This allows for the copy and redistribution of this document as long as Healthcare Improvement Scotland is fully acknowledged and given credit. The material must not be remixed, transformed or built upon in any way. To view a copy of this licence, visit https://creativecommons.org/licenses/by-nc-nd/4.0/ \
+
+www.healthcareimprovementscotland.scot
+
+
+
+# **Contents**
+```{r table of contents}
+block_toc()
+```
+
+\newpage
+
+# **About this report**
+
+Under section 20(2) of the Certification of Death (Scotland) Act 2011^1^ , the Death Certification Review Service medical review has a statutory duty to -
+
+- collate and analyse information relating to or contained in medical certificates of cause of death (MCCD)
+
+- provide training, guidance and support to persons who are required to complete medical certificates of cause of death and liaise with such persons as the medical reviewer considers appropriate with a view to improving the accuracy of the information (and in particular the causes of death) recorded in medical certificates of cause of death.
+
+This report provides a summary of information about death certification reviews registered within your Health Board. The majority of this report has been prepared on cases received between `r year3`, with occasional analysis also using data going back to January 2019.  
+
+**Notes:**
+
+- The Death Certification Review Service (DCRS) strive to ensure the robustness of their data by continually checking for accuracy and making amendments where necessary.  This can result in small changes in historical data. Throughout this document, individual percentage calculations have been rounded and may have a minimal effect on the total in a table
+- Service Level Agreement for completion of reviews is 24 hours for Level 1 and 3 working days for Level 2
+- Occasionally Level 1 reviews may be escalated to Level 2, and this may result in the re-issue of an MCCD.  A reissue is needed if a change is required and certifying doctor is not available, there is an error in hazards, or there is a significant error in the case
+- MCCDs can be closed with more than one closure category as a reason why the case is 'not in order'
+- Historically the run charts have included data going back to May 2015. Including so much data in the charts has meant they had started to become cluttered and potential recent changes were difficult to interpret.  From the 2023/2024 report, the run chart analysis will only review the latest five years starting from January 2019.  This will be a rolling five years so for example in the next report for 2024/2025, run chart analysis will start from January 2020. Text highlighting the original initial baseline median from May 2015, and any historical improvements from this, will still be included in the review to give context of overall changes at Scotland and board level
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+------
+^1^ [Certification of Death (Scotland) Act 2011 (legislation.gov.uk)](https://www.legislation.gov.uk/asp/2011/11/crossheading/other-functions-of-medical-reviewers)
+
+
+# **Interpreting the data**
+
+This report uses run charts and funnel plots to help us determine if the variation we see is normal (random variation) or is out of the ordinary, and to be explored further (non-random variation). 
+
+<br>
+
+**Run charts**\
+Run charts are used as the main analysis method for identifying variation over time. Run charts give a probability based indication of when data changes by highlighting unusual patterns around a median. The median is the middle point of a group of numbers. In run charts we set a baseline median using the first twelve stable data points. We then extend the median forward and use it to look at patterns in the data. The median and extended median are the orange solid and dotted lines in the run charts.
+
+Unusual patterns in the data include:
+
+- A run of **6 consecutive points** above or below the median (yellow data points) - this is a sign of change (of non-random variation)
+
+- A run of **9 or more points** above or below the median – this is a sustained change (a sign of non-random variation) and new medians are calculated.  
+
+**'Current temporary median'** is where there are too few data points to create a stable 12 point median but enough to signal a shift in the median. (For quarterly data 8 data points are used for initial median and any further medians)
+
+During the Coronavirus pandemic, the service introduced variable MCCD selection rate where Hybrid level 1 review process was put in place. Hybrid level 1 includes a review of the MCCD, patient KIS and discussion with the certifying doctor. Since these were a break from 'usual' service levels the data from this period could not be analysed, with these shown as grey dots on the run charts and with the medians paused
+
+<br>
+
+**Funnel plots**\
+A funnel chart is a scatter plot with funnel shaped boundary lines.  These lines (or limits) distinguish non-random variation from random variation. The lines are wider where the area of interest (in this case the number of reviews) is smaller to account for wider variation with smaller numbers. Individual NHS boards’ percentage of cases 'not in order' varies around the Scottish average. The funnel chart is used in this report to show the extent to which each board differs statistically from the Scottish average, taking account of the number of cases for each board.
+
+The inner limits are called warning limits, and the upper limits are called control limits. Data points which fall between the upper warning limits and upper control limit are considered high or low compared to the average, but are not significantly statistically different from the average.  Data points which fall out with the control limit are considered statistically different from the average and are non-random variation.
+
+\newpage
+# **Key Messages**
+
+<br>
+
+**Significant Outcomes**
+
+- `r key_message`
+
+<br>
+
+**Health Board reports**
+
+You asked us to provide one annual report and we are pleased to be moving to this for your 2023/2024 report.
+
+You also asked us to consider the requirement for a 6 monthly report (due around Nov/Dec) and we will no longer be producing this report.  We will continue to review your data and should any areas of concern be highlighted a more targeted interim report will be produced and sent to you.
+
+<br>
+
+**eMCCD rollout**
+
+We continue to work with NHS Lothian, and they hope to be in a position to take this live during the 2024/2025 financial year.
+
+<br>
+
+**Important – Hospital notes**
+
+Following feedback from our Medical Reviewer Assistants, we have identified an increase in the number of reviews being delayed due to medical notes not being available on wards for doctors. We would ask if consideration could be given as to how quickly medical notes are removed from wards and sent for scanning as the delay in the doctors being able to carry out the reviews can impact on the family being able to proceed with funeral arrangements.
+ 
+
+
+```{r}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous"
+  )
+)
+```
+\newpage
+# **Case Summary**
+**`r year3`**
+
+**Scotland**
+
+- A total of `r Scot_total` cases were received in Scotland in the period.  *Table 1* shows the case type breakdown
+- `r io_percent_scot` of these were found to be in order. *Table 2*
+- Of the `r nio_total_scot` (`r nio_percent_scot`) 'not in order' cases, `r email_total_scot` (`r email_percent_scot`)  required email amendments and `r mccd_total_scot` (`r mccd_percent_scot`) required replacement MCCDs. *Table 2*
+- `r pf_percent_scot` of cases were reported to the Procurator Fiscal
+- `r emccd_percent_scot` of MCCDs were received electronically and `r mccd_percent_scot2` on paper. *Table 3*
+
+<br>
+
+<br>
+
+**`r Board`**
+
+- A total of `r board_total` cases were received by the Board in the period.  *Table 1* shows the case type breakdown
+- `r io_percent` of these were found to be in order. *Table 2*
+- Of the `r nio_total` (`r nio_percent`) 'not in order' cases, `r email_total` (`r email_percent`)  required email amendments and `r mccd_total` (`r mccd_percent`) required replacement MCCDs. *Table 2*
+- `r pf_percent` of cases were reported to the Procurator Fiscal
+- `r emccd_percent` of MCCDs were received electronically and `r mccd_percent2` on paper. *Table 3*
+
+`r officer::run_columnbreak()`
+```{r table 1, ft.align="left"}
+dcrs_table_total
+```
+<br>
+```{r table 2, ft.align="left"}
+dcrs_table
+```
+<br>
+```{r table 3, ft.align="left"}
+dcrs_table2
+```
+
+\newpage
+**Scotland**
+
+- `r total_breach_percent_scot` of reviewed cases breached SLA timescales, `r cd_breach_percent_scot` of which were due to the Certifying Doctor being unavailable and `r other_breach_percent_scot` due to other reasons. *Table 4*. 'Other' mainly consists of DCRS delays (`r dcrs_delay_percent_scot`) and delays in receiving information (`r delay_percent_scot`).
+- The number of cases escalated from level 1 to level 2 was `r esc_level_scot` (`r esc_level_percent_scot`). *Table 5*.  The main reason for escalation was '`r top_esc_scot`' at `r top_esc_percent_scot` of all escalated cases.
+
+<br>
+
+<br>
+
+**`r Board`**
+
+- `r total_breach_percent` of reviewed cases breached SLA timescales, `r cd_breach_percent` of which were due to the Certifying Doctor being unavailable and `r other_breach_percent` due to other reasons. *Table 4*. 'Other' mainly consists of DCRS delays (`r dcrs_delay_percent`) and delays in receiving information (`r delay_percent`).
+- The number of cases escalated from level 1 to level 2 was `r esc_level` (`r esc_level_percent`). *Table 5*. The main reason for escalation was '`r top_esc`' at `r top_esc_percent` of all escalated cases.
+
+`r officer::run_columnbreak()`
+```{r table 4, ft.align="left"}
+dcrs_table3
+```
+<br>
+```{r table 5, ft.align="left"}
+dcrs_table_5
+```
+
+\newpage
+```{r}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous",
+    page_margins = page_mar(left = 0.15, top = 0.7, bottom = 0.7),
+    section_columns = section_columns(widths = c(4.2, 6.3), space = 0.2, sep = TRUE)
+  )
+)
+```
+
+```{r runchart start}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous"
+  )
+)
+```
+
+# **Cases 'not in order'**
+
+**Scotland**
+
+- `r scot_change_status`. `r scot_new_change_status` *Chart 1*
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+**`r Board`**
+
+- `r board_change_status`. `r board_new_change_status` *Chart 2*
+
+`r officer::run_columnbreak()`
+
+```{r, fig.width=6,fig.height=3.2, message=FALSE, warning=FALSE} 
+
+scot_run +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot")
+
+```
+
+```{r, fig.width=6,fig.height=3.2, message=FALSE, warning=FALSE} 
+#If small board with little data then run chart analysis is not possible. THis will skip these boards
+if(Board == "Western Isles" | Board == "Shetland" | Board == "Orkney" | Board == "National Golden Jubilee") {
+  
+} else board_run +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot")
+
+```
+
+```{r runchart end}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous",
+    page_margins = page_mar(left = 0.15, top = 0.7, bottom = 0.7),
+    section_columns = section_columns(widths = c(4.2, 6.3), space = 0.2, sep = TRUE)
+  )
+)
+```
+
+```{r funnel start}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous"
+  )
+)
+```
+# **NHS Board Comparators**
+
+- A funnel plot of the percentage of MCCDs 'not in order' for randomised cases indicates that NHS `r Board` is  `r nio_outliers`. *Chart 3*
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+- The percentage of MCCDs requiring a replacement certificate funnel plot indicates that NHS `r Board` is `r replace_outliers`. *Chart 4*  
+
+
+`r officer::run_columnbreak()`
+```{r, fig.width=6,fig.height=3.2, warning=FALSE} 
+
+dcrs_nio_funnel +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot")
+
+```
+
+```{r, fig.width=6,fig.height=3.2, warning=FALSE} 
+
+dcrs_replace_funnel +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot")
+
+```
+
+```{r funnel end}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous",
+    page_margins = page_mar(left = 0.15, top = 0.7, bottom = 0.7),
+    section_columns = section_columns(widths = c(4.2, 6.3), space = 0.2, sep = TRUE)
+  )
+)
+```
+
+```{r service start}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous"
+  )
+)
+```
+# **Service Data Breakdown**
+
+- `r closure_nio` of all MCCDs 'not in order' had at least one clinical closure category recorded, with the most common categor`r closure_value1` being `r max_closure_name`, `r closure_value2` at `r max_closure_value`. `r care_breakdown_text` *Chart 5*
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+- Of the cases recorded as 'cause of death too vague', `r max_vague_value` were due to `r max_vague_name`, and `r max_vague_value2` were due to `r max_vague_name2`. *Chart 6*
+
+`r officer::run_columnbreak()`
+```{r, fig.width=6,fig.height=3.1} 
+
+#For larger boards a primary/secondary care breakdown is possible. Otherwise a standard overview is used.
+if(Board != "Borders" & Board != "Dumfries and Galloway" & Board != "Shetland" & Board != "Orkney" 
+                          & Board != "Western Isles" & Board != "National Golden Jubilee"){
+dcrs_closure_ps_plot2 +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot")
+} else  
+  {dcrs_closure_plot +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot")
+}
+```
+
+```{r, fig.width=6,fig.height=3.1} 
+
+dcrs_closure_plot_death +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot")
+
+```
+***Note**: Closure categories can have more than one cause.*
+
+```{r service end}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous",
+    page_margins = page_mar(left = 0.15, top = 0.7, bottom = 0.7),
+    section_columns = section_columns(widths = c(4.2, 6.3), space = 0.2, sep = TRUE)
+  )
+)
+```
+
+```{r service cont start}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous"
+  )
+)
+```
+- `r closure_admin_nio` of all MCCDs 'not in order'  had at least one administrative closure category recorded, with the most common categor`r admin_value1` being `r max_admin_name`, `r admin_value2` at `r max_admin_value`. *Chart 7*
+
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+- Due to the certifying doctor not following COPFS/CMO guidance the service recommended `r total_PF` deaths were subsequently reported to the PF. `r max_PF_value` were due to `r max_PF_name`, and `r max_PF_value2` due to `r max_PF_name2`. *Chart 8*   
+
+`r officer::run_columnbreak()`
+```{r, fig.width=6,fig.height=3.1} 
+
+dcrs_closure_plot_admin +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot") 
+
+```
+
+```{r, fig.width=6,fig.height=3.1} 
+
+dcrs_PF_plot +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot") 
+
+```
+***Note**: Closure categories can have more than one cause.*
+
+```{r service cont end}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous",
+    page_margins = page_mar(left = 0.15, top = 0.7, bottom = 0.7),
+    section_columns = section_columns(widths = c(4.2, 6.3), space = 0.2, sep = TRUE)
+  )
+)
+```
+```{r service cont2 start}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous"
+  )
+)
+```
+- During the period there have been `r total_enquiry` calls from NHS `r Board` made to the enquiry line.  There were `r max_enquiry_number` calls (`r max_enquiry_value`) seeking `r max_enquiry_name` which was the majority to the enquiry line, and `r max_enquiry_number2` (`r max_enquiry_value2`) seeking `r max_enquiry_name2`. *Chart 9*
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+`r officer::run_columnbreak()`
+```{r, fig.width=6,fig.height=3.2} 
+
+dcrs_enquiry_plot +
+  theme(text = element_text(size = 8),
+        plot.title.position = "plot") 
+
+```
+
+```{r hosp cont2 end}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous",
+    page_margins = page_mar(left = 0.15, top = 0.7, bottom = 0.7),
+    section_columns = section_columns(widths = c(4.2, 6.3), space = 0.2, sep = TRUE)
+  )
+)
+```
+\newpage
+# **Key Information Summary**
+```{r blank table for DCRS, ft.align="left"}
+kis_table
+```
+
+<br>
+
+# **Information Governance** 
+
+There have been no Information Governance breaches recorded during the reporting period.
+
+\newpage
+# **Hospital Summary**
+
+- Of the `r hospital_total` hospital cases reviewed for the year, `r hospital_number_top` (`r hospital_percent_top`) occurred at `r hospital_name`, of which `r hospital_number_notinorder` (`r hospital_percent_notinorder`) were found to be 'not in order'. *Table 6*
+- `r hospital_name` has seen the largest number of hospital cases over the last 3 years. *Chart 10*
+
+<br>
+
+```{r hosp review start}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous"
+  )
+)
+```
+```{r table 6, ft.align="left"}
+dcrs_table_hosp
+```
+`r officer::run_columnbreak()`
+```{r, fig.width=5.5,fig.height=4} 
+
+if (nrow(DCRS_Data_Hosp3 != 0)) {
+hosp_review_chart +
+      theme(text = element_text(size = 8),
+        plot.title.position = "plot")
+} else {"Not enough data"}
+
+```
+
+```{r hosp review end}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous",
+    page_margins = page_mar(left = 0.25, top = 0.7, bottom = 0.7),
+    section_columns = section_columns(widths = c(5.2, 5.3), space = 0.1, sep = TRUE)
+  )
+)
+```
+# **Hospice Summary**
+
+- Of the `r hospice_total` hospice cases reviewed for the year, `r hospice_number_top` (`r hospice_percent_top`) occurred at `r hospice_name`, of which `r hospice_number_notinorder` (`r hospice_percent_notinorder`) were found to be 'not in order'. *Table 7*
+
+<br>
+```{r hospice review start}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous"
+  )
+)
+```
+
+```{r table 7, ft.align="left"}
+
+if (nrow(DCRS_Data_Hospice) > 1) {
+dcrs_table_hospice } else {"Not enough data"}
+
+```
+`r officer::run_columnbreak()`
+```{r, fig.width=5.5,fig.height=4} 
+
+#some boards may have no hospice data so this will skip those if true
+if (nrow(DCRS_Data_Hospice3 != 0)) {
+hospice_review_chart +
+      theme(text = element_text(size = 8),
+        plot.title.position = "plot")
+} else {"Not enough data"}
+
+```
+
+```{r hospice review end}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous",
+    page_margins = page_mar(left = 0.25, top = 0.7, bottom = 0.7),
+    section_columns = section_columns(widths = c(5.2, 5.3), space = 0.1, sep = TRUE)
+  )
+)
+```
+\newpage
+
+```{r hosp cont2 start}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous"
+  )
+)
+```
+# **Cause of Death Summary**
+
+- Of the `r nio_total` cases 'not in order' at NHS `r Board` during `r year3`, the main cause of death recorded was `r top_cause_name` with `r top_cause_number` cases.  `r top_cause_place_percentage` of these occurred at `r top_cause_place`. *Chart 11*
+
+`r officer::run_columnbreak()`
+
+```{r, fig.width=6,fig.height=3.2} 
+
+if (nrow(DCRS_Data_Chapter != 0)) {
+diag_chart  +
+      theme(text = element_text(size = 7.5),
+        plot.title.position = "plot")
+} else {"Not enough data"}
+
+```
+
+```{r service cont2 end}
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"), type = "continuous",
+    page_margins = page_mar(left = 0.15, top = 0.7, bottom = 0.7),
+    section_columns = section_columns(widths = c(4.2, 6.3), space = 0.2, sep = TRUE)
+  )
+)
+```
+# **Appendix 1 – Hybrid Reviews**
+During the Coronavirus pandemic, the service introduced variable MCCD selection rate where Hybrid level 1 review process was put in place.  The service resumed normal selection rate and review process from 20 March 2023.
+
+Hybrid level 1 review includes a review of the MCCD, patient KIS and discussion with the certifying doctor. It should be noted that during the height of the pandemic where the MCCD was substantially ‘in order’ the Medical Reviewer could close the case ‘in order’ accepting minor errors. These minor errors, which under normal review would be deemed as ‘not in order’ include but are not limited to; absence of clinical durations, histology/ tumour or stroke site and bacteriology.
+
+<br>
+
+`r reduction_table`
+
+\newpage
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+Death Certification Review Service 
+
+<br>
+
+Healthcare Improvement Scotland `r ftext("             ")` Edinburgh Office `r ftext("               ")` Glasgow Office \
+Gyle Square `r ftext("                                                     ")` Gyle Square `r ftext("                        ")` Delta House \
+1 South Gyle Crescent `r ftext("                                   ")` 1 South Gyle Crescent `r ftext("      ")` 50 West Nile Street\
+Edinburgh `r ftext("                                                        ")` Edinburgh `r ftext("                           ")` Glasgow \
+EH12 9EB `r ftext("                                                         ")` EH12 9EB `r ftext("                             ")` G1 2NP
+
+<br>
+
+0300 123 1898 `r ftext("                                               ")` 0131 623 4300 `r ftext("                    ")` 0141 225 6999 \
+his.dcrs@nhs.scot 
+
+<br>
+
+[www.healthcareimprovementscotland.scot](https://www.healthcareimprovementscotland.scot/inspections-reviews-and-regulation/death-certification-review-service-dcrs/)
+

@@ -1,0 +1,283 @@
+############ Reads in the raw health board DCRS dataset.  
+############ Standard values used throughout the report are set before Scotland and health board level figures are aggregated 
+############ Pre combined hospital/hospice data is also read in and standard values and aggregates are also set
+
+Board <- hdr
+
+# load DCRS HB data extracted from Dynamics
+
+dcrs_raw <- read_csv("Data/DCRS-HBData.csv")
+
+
+# create standard values from dataset -------------------------------------
+
+#Set required extra values for identifying case types
+dcrs_data <- dcrs_raw %>%
+  mutate(NiO = case_when(`Case Status` == "Case not in Order" ~ "1",
+                         `Case Status` == "Reported to PF" ~ "PF",
+                         `Case Status` == "Case in Order" ~ "0" ),
+         #identify electronic (1) or paper cases (0) using serial number
+         emccd = case_when(substr(`Serial Number (MCCD)`,1,1) >= "5" & nchar(`Serial Number (MCCD)`) == 8 ~ 1,
+                           TRUE ~ 0),
+         #simplify outcome for reporting
+         outcome = case_when(`Case Status` == "Case in Order" ~"No issues",
+                             substr(`MCCD Status`,1,5) == "Email" | substr(`MCCD Status`,1,5) == "MCCD " ~"Email",
+                             substr(`MCCD Status`,1,5) == "Repla" ~ "Replacement",
+                             TRUE ~ `Case Status`),
+         #identify as primary or secondary care case emccd (only primary are currently electric)
+         primary_secondary = case_when(emccd == 1 ~ "Primary",
+                                       `Serial Number (MCCD)` !="" & emccd != 1 ~ "Secondary",
+                                       TRUE ~ "Uknown"),
+         #Set certain financial years for reporting (1 is rarely used in this report)
+         `Created On` = as.Date(`Created On`, "%d/%m/%Y"),
+# update dates ------------------------------------------------------------
+         Year = case_when(`Created On` >= "2021-04-01" & `Created On` <= "2022-03-31" ~ 1, 
+                          `Created On` >= "2022-04-01" & `Created On` <= "2023-03-31" ~ 2,
+                          `Created On` >= "2023-04-01" & `Created On` <= "2024-03-31" ~ 3))
+
+
+
+# get aggregates for boards and years -------------------------------------
+
+#set overall data totals for table 1
+
+#Create board level
+dcrs_data_total <- dcrs_data %>%
+  filter(`Case Type` != "Enquiry" | `Case Type` != "Repatriation",
+         `Created On` < end_date) %>%
+  group_by(Year, `Health Board`) %>%
+  summarise(total_standard = sum(`Case Type` == "Standard"),
+            total_interested = sum(`Case Type` == "Interested Person"),
+            total_registrar = sum(`Case Type` == "Registrar Referral"),
+            total_for_cause = sum(`Case Type` == "For Cause")
+            , .groups = "rowwise") %>%
+  filter(Year == 1 | Year == 2 | Year == 3)
+
+#Create Scotland level
+dcrs_data_scotland_total <- dcrs_data_total %>% 
+  group_by(Year) %>% 
+  summarise_if(is.numeric, sum) %>%
+  mutate(`Health Board` = 'Scotland')
+
+#Combine board and Scotland level
+dcrs_data_total_all <- rbind(dcrs_data_total %>% filter(`Health Board` == Board) %>% mutate(`Health Board` = 'Board'), dcrs_data_scotland_total)
+
+
+
+# get aggregates for main values ------------------------------------------
+
+#set data for main report
+
+dcrs_data_report <- dcrs_data %>%
+  filter(`Case Type` == "Standard",
+         `Created On` < end_date) %>%
+  group_by(Year, `Health Board`) %>%
+  
+            ###Table 2###
+  summarise(total_in_order = sum(`Case Status` == "Case in Order"),
+            total_not_in_order = sum(`Case Status` == "Case not in Order"),
+            total_email_amendment = sum(substr(`MCCD Status`,1,5) == "Email" &
+                                          `Case Status` == "Case not in Order"| 
+                                          substr(`MCCD Status`,1,4) == "MCCD" &
+                                          `Case Status` == "Case not in Order", na.rm = TRUE),
+            total_replacement_mccd = sum(substr(`MCCD Status`,1,5) == "Repla" &
+                                           `Case Status` == "Case not in Order", na.rm = TRUE),
+            total_report_to_pf = sum(`Case Status` == "Reported to PF", na.rm = TRUE),
+            
+            ###Table 3###
+            total_emccd = sum(emccd == 1,  na.rm = TRUE),
+            total_mccd = sum(emccd != 1, na.rm = TRUE),
+            emccd_in_order = sum(`Case Status` == "Case in Order" & emccd == 1,  na.rm = TRUE),
+            emccd_to_pf = sum(`Case Status` == "Reported to PF" & emccd == 1,  na.rm = TRUE),
+            mccd_in_order = sum(`Case Status` == "Case in Order" & emccd != 1,  na.rm = TRUE),
+            mccd_to_pf = sum(`Case Status` == "Reported to PF" & emccd != 1,  na.rm = TRUE),
+            total_ex_pf = sum(NiO != "PF" & NiO != "", na.rm = TRUE),
+            
+            ###Table 4###
+            total_breach = sum(NiO != "" & `Breach Reason` != "" & `Breach Reason` != "Reported to the PF" &
+                                 `Breach Reason` != "Paper record is lost" , na.rm = TRUE),
+            total_cd_unavailable = sum((NiO != "" & `Breach Reason` == "CD unavailable") |
+                                         (NiO != "" & `Breach Reason` == "CD on A/L")  , na.rm = TRUE),
+            total_breach_other = sum(NiO != "" & `Breach Reason` != "CD unavailable" & `Breach Reason` != "" &
+                                       `Breach Reason` != "Reported to the PF" & `Breach Reason` != "CD on A/L", na.rm = TRUE),
+            total_breach_delay = sum(NiO != "" & `Breach Reason` == "Delay in receiving medical notes" |
+                                       `Breach Reason` == "Delay in obtaining additional information" |
+                                       `Breach Reason` == "Delay in receiving email amendment/replacement", na.rm = TRUE),
+            total_breach_dcrsdelay = sum(NiO != "" & `Breach Reason` == "DCRS delay", na.rm = TRUE),
+            total_breach_otheralt = sum(NiO != "" & `Breach Reason` == "Other", na.rm = TRUE),
+            
+            ###Table 5###
+            total_level = sum(Level != "", na.rm = TRUE),
+            level_1 = sum(Level == "Level 1", na.rm = TRUE),
+            level_2 = sum(Level == "Level 2", na.rm = TRUE),
+            level_1_hybrid = sum(Level == "Level 1 Hybrid", na.rm = TRUE),
+            escalated = sum(`Escalation Reason` != "", na.rm = TRUE),
+            level_1_total = level_1 + level_1_hybrid + escalated,
+            
+            ###Chart 5 - Clinical error data###
+            cause_too_vague = sum(`Cause of death too vague1` == "Yes", na.rm = TRUE),
+            closure_category = sum(`Closure Category - Clinical1` == "Yes", na.rm = TRUE),
+            closure_category_admin = sum(`Closure Category - Administrative1` == "Yes", na.rm = TRUE),
+            causal_timscale = sum(`Causal timescales incorrect1` == "Yes", na.rm = TRUE),
+            cause_of_death = sum(`Cause of Death incorrect1` == "Yes", na.rm = TRUE),
+            conditions_omitted = sum(`Conditions omitted1` == "Yes", na.rm = TRUE),
+            disposal_hazard = sum(`Disposal Hazard incorrect1` == "Yes", na.rm = TRUE),
+            sequence_of_cause = sum(`Sequence of Cause of Death incorrect1` == "Yes", na.rm = TRUE),
+            
+            ###Chart 6 - Cause of death too vague data###        
+            histology = sum(`Histology 1` == "Yes", na.rm = TRUE),
+            psite_metastatic_missing = sum(`Primary site or metastatic site(s) missing1` == "Yes", na.rm = TRUE),
+            pneumonia_subtype = sum(`Pneumonia sub-type1` == "Yes", na.rm = TRUE),
+            dementia_subtype = sum(`Dementia sub-type1` == "Yes", na.rm = TRUE),
+            microbiology = sum(`Microbiology 1` == "Yes", na.rm = TRUE),
+            sepsis_source = sum(`Source of sepsis1` == "Yes", na.rm = TRUE),
+            diabetes_subtype = sum(`Diabetes sub-type1` == "Yes", na.rm = TRUE),
+            stroke = sum(`tn_ccstrokesubtype` == "Yes", na.rm = TRUE),
+            lifestyle_factor = sum(`Lifestyle factors (smoking, obesity, alcohol)1` == "Yes", na.rm = TRUE),
+            
+            ###Chart 7 - Administrative error data###
+            closure_category_admin = sum(`Closure Category - Administrative1` == "Yes", na.rm = TRUE),
+            spelling_error = sum(`Certifying Doctor Spelling error1` == "Yes", na.rm = TRUE),
+            deceased_details_incorrect = sum(`Deceased details incorrect1`== "Yes", na.rm = TRUE),
+            doctors_details_incorrect = sum(`Certifying Doctor's details incorrect1`== "Yes", na.rm = TRUE),
+            abbreviations_used = sum(`Abbreviations used 1` == "Yes", na.rm = TRUE),
+            time_incorrect = sum(`Date or time of death incorrect1`== "Yes", na.rm = TRUE),
+            incorrectly_complete = sum(`Extra information (X Box) incorrectly complete1` == "Yes", na.rm = TRUE),
+            attendance_incorrect = sum(`Attendance on the deceased incorrect1`== "Yes", na.rm = TRUE),
+            address_incorrect = sum(`Place of death address incorrect1` == "Yes", na.rm = TRUE),
+            pm_information_incorrect = sum(`PM information incorrect1` == "Yes", na.rm = TRUE),
+            legibility = sum(`Legibility  1` == "Yes", na.rm = TRUE),
+            consultant_incorrect = sum(`Consultant's name incorrect1` == "Yes", na.rm = TRUE),
+            other_incorrect = sum(`Other Additional information incorrect1` == "Yes", na.rm = TRUE),
+            
+            ###Chart 8 - Report to PF data###
+            total_report_to_pf = sum(`Case Status` == "Reported to PF", na.rm = TRUE),
+            choking = sum(`tn_ccchoking` == "Yes", na.rm = TRUE),
+            concerns_over_care = sum(`tn_ccconcernsovercare` == "Yes", na.rm = TRUE),
+            drug_related = sum(`tn_ccdrugrelated` == "Yes", na.rm = TRUE),
+            neglect_exposure = sum(`tn_ccneglectorlonglie` == "Yes", na.rm = TRUE),
+            fracture_trauma = sum(`tn_ccfractureortrauma` == "Yes", na.rm = TRUE),
+            industrial_disease = sum(`tn_ccindustrialdisease` == "Yes", na.rm = TRUE),
+            infectious_disease = sum(`tn_ccinfectiousdisease` == "Yes", na.rm = TRUE),
+            legal_order = sum(`tn_cclegalorder` == "Yes", na.rm = TRUE),
+            flagged_error = sum(`tn_ccflaggedinerror` == "Yes", na.rm = TRUE),
+            other_report_pf = sum(`tn_ccotherreporttopf` == "Yes", na.rm = TRUE)
+            , .groups = "rowwise") %>%
+  filter(Year == 2 | Year == 3)
+
+#Create Scotland level
+dcrs_data_report_scotland <- dcrs_data_report %>% 
+  group_by(Year) %>% 
+  summarise_if(is.numeric, sum) %>%
+  mutate(`Health Board` = 'Scotland')
+
+#Combine both
+dcrs_data_report_all <- rbind(dcrs_data_report %>% filter(`Health Board` == Board) %>% mutate(`Health Board` = 'Board'), dcrs_data_report_scotland)
+
+
+# get aggregates for enquiry data -----------------------------------------
+
+###Chart 9 -   set enquiries data
+
+dcrs_data_enquiry <- dcrs_data %>%
+  filter(`Case Type` == "Enquiry",
+         `Enquiry Category` != "Interested Person" & `Enquiry Category` != "Registrar" & `Enquiry Category` != "Repatriation",
+         `Created On` < end_date) %>%
+  group_by(Year, `Health Board`) %>%
+  summarise(gp_clinical_advice = sum(`Enquiry Category` == "GP Clinical advice", na.rm = TRUE),
+            gp_process_advice = sum(`Enquiry Category` == "GP Process advice", na.rm = TRUE),
+            hospital_clinical_advice = sum(`Enquiry Category` == "Hospital Clinical advice", na.rm = TRUE),
+            hospital_process_advice = sum(`Enquiry Category` == "Hospital Process advice", na.rm = TRUE),
+            hospice_clinical_advice = sum(`Enquiry Category` == "Hospice Clinical advice", na.rm = TRUE),
+            hospice_process_advice = sum(`Enquiry Category` == "Hospice Process advice", na.rm = TRUE),
+            funeral_director = sum(`Enquiry Category` == "Funeral Director", na.rm = TRUE),
+            informant_or_family = sum(`Enquiry Category` == "Informant or family", na.rm = TRUE),
+            procurator_fiscal = sum(`Enquiry Category` == "Procurator Fiscal", na.rm = TRUE),
+            signposted = sum(`Enquiry Category` == "Signposted", na.rm = TRUE),
+            other = sum(`Enquiry Category` == "Other", na.rm = TRUE),
+            enquiry_category_total = sum(`Enquiry Category` != "" , na.rm = TRUE)
+            , .groups = "rowwise") %>%
+  filter(Year == 2 | Year == 3)
+
+#Create Scotland level
+dcrs_data_scotland_enquiry <- dcrs_data_enquiry %>% 
+  group_by(Year) %>% 
+  summarise_if(is.numeric, sum) %>%
+  mutate(`Health Board` = 'Scotland')
+
+#Combine both
+dcrs_data_enquiry_all <- rbind(dcrs_data_enquiry %>% filter(`Health Board` == Board) %>% mutate(`Health Board` = 'Board'), dcrs_data_scotland_enquiry)
+
+
+#KIS Checks (still being tested)
+
+dcrs_data_KIS <- dcrs_data %>%
+  filter(Year == 2 | Year == 3) %>%
+  group_by(Year, `Health Board`) %>%
+  summarise(case_count = n(),
+            kis_complete = sum(`kischeckstatus` == 'Complete', na.rm = TRUE)) %>%
+ ungroup()
+
+table(dcrs_data_KIS$kischeckstatus)
+  
+#  mutate(kis_flag = case_when(str_detect(`kischecknotes`, fixed("No KIS")) ~ 1,
+#                              str_detect(`kischecknotes`, fixed("none")) ~ 1,
+ #                             str_detect(`kischecknotes`, fixed("NIL")) ~ 1,
+  #                            str_detect(`kischecknotes`, fixed("No ECS/KIS")) ~ 1,
+   #                           str_detect(`kischecknotes`, fixed("Patient not found")) ~ 1,
+    #                          TRUE ~ 0)) %>%
+  #filter(kis_flag == 1)
+                              
+
+
+
+# get hospital aggregates -------------------------------------------------
+
+#set hospital review data
+
+###Table 6 - Hospital Review
+DCRS_Data_Hosp <- DCRS_DATA_Loc_DIAG %>%
+  filter(Health_Board == Board,
+         YEAR == paste0("Year ", y3),
+         instgrp2 == "NHS Hospital") %>%
+  group_by(Locname) %>%
+  summarise(case_in_order = sum(Review == "Case in Order"),
+            case_not_in_order = sum(Review == "Case not in Order"),
+            case_report_pf = sum(Review == "Reported to PF"),
+            case_total = (case_in_order + case_not_in_order + case_report_pf)) %>%
+  arrange(desc(case_total)) %>% #sort highest to lowest
+  adorn_totals("row") %>% #add row with overall totals
+  mutate(in_order_percent = percent(case_in_order / case_total, accuracy = 0.1),
+         not_in_order_percent = percent(case_not_in_order / case_total, accuracy = 0.1),
+         report_pf_percent = percent(case_report_pf / case_total, accuracy = 0.1),
+         total_all_percent =percent(case_total / (sum(case_total)/2), accuracy = 0.1)) %>%
+  select(Locname, case_in_order, in_order_percent,
+         case_not_in_order, not_in_order_percent,
+         case_report_pf, report_pf_percent,
+         case_total, total_all_percent)
+
+
+# get hospice aggregates --------------------------------------------------
+
+#set hospice review data
+
+###Table 7 - Hospice Review
+DCRS_Data_Hospice <- DCRS_DATA_Loc_DIAG %>%
+  filter(Health_Board == Board,
+         YEAR == paste0("Year ", y3),
+         instgrp2 == "Hospice") %>%
+  group_by(Locname) %>%
+  summarise(case_in_order = sum(Review == "Case in Order"),
+            case_not_in_order = sum(Review == "Case not in Order"),
+            case_report_pf = sum(Review == "Reported to PF"),
+            case_total = (case_in_order + case_not_in_order + case_report_pf)) %>%
+  arrange(desc(case_total)) %>% #sort highest to lowest
+  adorn_totals("row") %>% #add row with overall totals
+  mutate(in_order_percent = percent(case_in_order / case_total, accuracy = 0.1),
+         not_in_order_percent = percent(case_not_in_order / case_total, accuracy = 0.1),
+         report_pf_percent = percent(case_report_pf / case_total, accuracy = 0.1),
+         total_all_percent = percent(case_total / (sum(case_total)/2), accuracy = 0.1)) %>%
+  select(Locname, case_in_order, in_order_percent,
+         case_not_in_order, not_in_order_percent,
+         case_report_pf, report_pf_percent,
+         case_total, total_all_percent)
