@@ -62,10 +62,6 @@ end_date <- as.Date("2024-04-01")
 
 ```
 
-```{r set working directory}
-#setwd("N:/Evidence/DMBI/Death Cert/Report - Healthboards Quarterly/his-dcrs-hb-annual")
-```
-
 ```{r load hospital data}
 load("Data/DCRS_DATA_Loc_DIAG.Rda") 
 ```

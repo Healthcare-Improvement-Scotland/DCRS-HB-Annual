@@ -1,8 +1,7 @@
+############ Takes combined DCRS/NRS dataset and adds location names, identifies location of death, and adds main cause of death
 
 library(tidyverse)
 library(readxl)
-
-#setwd("N:/Evidence/DMBI/Death Cert/Report - Healthboards Quarterly/2024 R Report")
 
 load("Data/DCRS_NRS_linked_final.Rda") 
 

@@ -1,12 +1,13 @@
+############ Reads in the raw place and cause DCRS dataset and NRS deaths datasets.  
+############ Combines both using CHI or name & date of birth when no CHI link found
+
 library(tidyverse)
 library(data.table)
 library(haven)
 library(lubridate)
 
-#setwd("N:/Evidence/DMBI/Death Cert/Report - Healthboards Quarterly/2024 R Report")
 
-
-######## From 1 DCRS data ########
+######## Read in DCRS data ########
 
 #Load DCRS data
 DCRS_data <- read_csv("Data/DCRS - Place and Cause Annual.csv")

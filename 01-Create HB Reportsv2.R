@@ -1,6 +1,7 @@
+############ Function to link to R Markdown script and create individual reports for each Health Board
+
 library(rmarkdown)
 library(tidyverse)
-
 
 #Set report script to run
 renderHBReport <- function(hdr, OutName) {
