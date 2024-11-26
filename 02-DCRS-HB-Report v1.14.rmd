@@ -13,11 +13,9 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.cap = TRUE
 
 ```{r libraries, include=FALSE}
 #Loading packages required for the functions throughout the report 
-#install.packages("stringi")
 library(tidyverse)
 library(lubridate)
 library(knitr)
-library(scales)
 library(formatR)
 library(flextable)
 library(magrittr)
