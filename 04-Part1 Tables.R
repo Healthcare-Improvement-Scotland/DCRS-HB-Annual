@@ -484,16 +484,40 @@ if (nrow(DCRS_Data_Hospice) > 1) {
 ####Blank tables for DCRS
 
 #Key Information Summary table
-kis_table_data <- data.frame(Period = c("Total number of reviews", "Completed KIS", "Percentage"),
-                             S1 = c("", "", ""),
-                             B1 = c("", "", ""),
-                             S2 = c("", "", ""),
-                             B2 = c("", "", ""))
+#kis_table_data <- data.frame(Period = c("Total number of reviews", "Completed KIS", "Percentage"),
+ #                            S1 = c("", "", ""),
+  #                           B1 = c("", "", ""),
+   #                          S2 = c("", "", ""),
+    #                         B2 = c("", "", ""))
 
-#Set up flextable
-kis_table <- flextable(kis_table_data) %>%
-  set_header_labels(Period= "", S1 = "Scotland", B1 = "Board", S2 = "Scotland", B2 = "Board") %>%  #Change header titles
+#Wrangle and format KIS data for KIS summary table
+dcrs_data_wrangle_kis <- dcrs_data_kis_all %>%
+  pivot_longer(cols = !c(Year, `Health Board`), 
+               names_to = 'event', 
+               values_to = 'count') %>%
+  pivot_wider(names_from = c(Year, `Health Board`), 
+              values_from = 'count') %>%
+  select(event, `2_Scotland`, `2_Board`, `3_Scotland`, `3_Board`) %>%
+  mutate(`2_Scotland` = as.character(`2_Scotland`),
+         `2_Board` = as.character(`2_Board`),
+         `3_Scotland` = as.character(`3_Scotland`),
+         `3_Board` = as.character(`3_Board`),
+         `2_Scotland` = case_when(event == 'kis_percent' ~ paste0(`2_Scotland`,"%"),
+                                  TRUE ~ `2_Scotland`),
+         `2_Board` = case_when(event == 'kis_percent' ~ paste0(`2_Board`,"%"),
+                               TRUE ~ `2_Board`),
+         `3_Scotland` = case_when(event == 'kis_percent' ~ paste0(`3_Scotland`,"%"),
+                                  TRUE ~ `3_Scotland`),
+         `3_Board` = case_when(event == 'kis_percent' ~ paste0(`3_Board`,"%"),
+                               TRUE ~ `3_Board`))
+
+#KIS Summary table
+kis_table <- flextable(dcrs_data_wrangle_kis) %>%
+  set_header_labels(event = "", `2_Scotland` = "Scotland", `2_Board` = "Board", `3_Scotland` = "Scotland", `3_Board` = "Board") %>%  #Change header titles
   #  bold(i = 1:5, j = 1, bold = TRUE) %>%
+  compose(i = 1, j = 1, as_paragraph(as_chunk("Completed KIS"))) %>%  #Change row titles
+  compose(i = 2, j = 1, as_paragraph(as_chunk("Total number of reviews"))) %>% 
+  compose(i = 3, j = 1, as_paragraph(as_chunk("Percentage"))) %>% 
   padding(padding.top = 1, part = "all") %>%
   padding(padding.bottom = 1, part = "all") %>%
   add_header_row(values = c("Period", year2, year3), 
@@ -505,6 +529,7 @@ kis_table <- flextable(kis_table_data) %>%
   valign(i = 1, j = 1, part = "header", valign = "top") %>%
   align(i = 1:2, j = 2:5, part = "header", align = "center") %>%  
   bold(i = 1:3, part = "body", bold = TRUE) %>% 
+  align(j = 2:5, part = "body", align = "right") %>%
   fontsize(size = 10, part = "all") %>%
   vline(j=1:4, border = brdr) %>% #Add borders (shape created earlier)
   hline(i=1:3, border = brdr) %>%
@@ -512,7 +537,7 @@ kis_table <- flextable(kis_table_data) %>%
   fix_border_issues() %>%
   bg(bg = "#C4D9F3", part = "header") %>%
   bg(i=1:3, j=1, bg = "#C4D9F3", part = "body") %>%
-  width(j = 1, width = 2.5, unit = "in")  %>%
+  width(j = 1, width = 2.3, unit = "in")  %>%
   width(j = 2:5, width = 1, unit = "in")
  
 

@@ -209,26 +209,44 @@ dcrs_data_scotland_enquiry <- dcrs_data_enquiry %>%
 dcrs_data_enquiry_all <- rbind(dcrs_data_enquiry %>% filter(`Health Board` == Board) %>% mutate(`Health Board` = 'Board'), dcrs_data_scotland_enquiry)
 
 
-#KIS Checks (still being tested)
+#KIS Checks
 
-dcrs_data_KIS <- dcrs_data %>%
-  filter(Year == 2 | Year == 3) %>%
+#Identify all cases with no KIS and remove. Get total with KIS
+dcrs_data_kis <- dcrs_data %>%
+ filter(`Created On` < end_date,
+        `Case Type` != "Repatriation",
+        kischecknotes != "") %>%
+ mutate(kischecknotes = iconv(paste(kischecknotes), from="UTF-8", to="UTF-8", sub="NA"), 
+        kischecknotes = tolower(kischecknotes),
+        kis_flag = case_when(str_detect(`kischecknotes`, fixed("no kis")) ~ 1,              #cases with "no kis" anywhere
+                             str_detect(`kischecknotes`, fixed("no chi/kis")) ~ 1,          #cases with "no chi/kis" anywhere
+                             str_detect(`kischecknotes`, fixed("no information")) ~ 1,      #cases with "no information" anywhere
+                             str_detect(`kischecknotes`, fixed("no record")) ~ 1,           #cases with "no record" anywhere
+                             str_detect(`kischecknotes`, fixed("patient not found")) ~ 1,   #cases with "patient not found" anywhere
+                             str_detect(`kischecknotes`, fixed("no data")) ~ 1,             #cases with "no data" anywhere
+                             substr(`kischecknotes`,1,6) == "no kis" ~ 1,                   #cases with "no kis" at the start with additional text
+                             substr(`kischecknotes`,1,4) == "none" ~ 1,                     #cases with "none" at the start
+                             substr(`kischecknotes`,1,3) == "nil" & nchar(`kischecknotes`) == 3 ~ 1,  #cases with "nil" at the start and no additional text
+                              TRUE ~ 0)) %>%
+  filter(kis_flag != 1,
+         Year == 2 | Year == 3) %>%
   group_by(Year, `Health Board`) %>%
-  summarise(case_count = n(),
-            kis_complete = sum(`kischeckstatus` == 'Complete', na.rm = TRUE)) %>%
- ungroup()
+  summarise(kis_count = n()) %>%
+  ungroup()
 
-table(dcrs_data_KIS$kischeckstatus)
-  
-#  mutate(kis_flag = case_when(str_detect(`kischecknotes`, fixed("No KIS")) ~ 1,
-#                              str_detect(`kischecknotes`, fixed("none")) ~ 1,
- #                             str_detect(`kischecknotes`, fixed("NIL")) ~ 1,
-  #                            str_detect(`kischecknotes`, fixed("No ECS/KIS")) ~ 1,
-   #                           str_detect(`kischecknotes`, fixed("Patient not found")) ~ 1,
-    #                          TRUE ~ 0)) %>%
-  #filter(kis_flag == 1)
-                              
+#Scotland total
+dcrs_data_scotland_kis <- dcrs_data_kis %>% 
+  group_by(Year) %>% 
+  summarise_if(is.numeric, sum) %>%
+  mutate(`Health Board` = 'Scotland') %>%
+  ungroup()
 
+#Combine both and get percentage
+dcrs_data_kis_all <- rbind(dcrs_data_kis %>% filter(`Health Board` == Board) %>% mutate(`Health Board` = 'Board'), dcrs_data_scotland_kis) %>%
+                     left_join(dcrs_data_total_all, by = c("Year", "Health Board")) %>%
+  mutate(case_total = total_standard + total_interested + total_registrar + total_for_cause) %>%
+  select(Year, `Health Board`, kis_count, case_total) %>%
+  mutate(kis_percent = round(kis_count/case_total * 100))
 
 
 # get hospital aggregates -------------------------------------------------
