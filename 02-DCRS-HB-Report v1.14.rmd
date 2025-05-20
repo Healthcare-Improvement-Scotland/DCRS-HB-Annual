@@ -66,7 +66,7 @@ end_date <- as.Date("2024-04-01")
 load("Data/DCRS_DATA_Loc_DIAG.Rda") 
 ```
 
-```{r load source data and analysis}
+```{r load source data and analysis, fig.show='hide'}
 
 source("03-HB Standard Data.R")
 
@@ -79,6 +79,7 @@ source("06-Part3 FunnelPlots2.R")
 source("07-Part4 Charts.R")
 
 ```
+
 <br>
 
 ![](HISLogo.jpg)
@@ -364,23 +365,10 @@ block_section(
 
 `r officer::run_columnbreak()`
 
-```{r, fig.width=6,fig.height=3.2, message=FALSE, warning=FALSE} 
+![](Charts/scot_run.png)
 
-scot_run +
-  theme(text = element_text(size = 8),
-        plot.title.position = "plot")
+![](Charts/board_run.png)
 
-```
-
-```{r, fig.width=6,fig.height=3.2, message=FALSE, warning=FALSE} 
-#If small board with little data then run chart analysis is not possible. THis will skip these boards
-if(Board == "Western Isles" | Board == "Shetland" | Board == "Orkney" | Board == "National Golden Jubilee") {
-  
-} else board_run +
-  theme(text = element_text(size = 8),
-        plot.title.position = "plot")
-
-```
 
 ```{r runchart end}
 block_section(
@@ -478,16 +466,17 @@ block_section(
 ```{r, fig.width=6,fig.height=3.1} 
 
 #For larger boards a primary/secondary care breakdown is possible. Otherwise a standard overview is used.
+if (nrow(dcrs_data_wrangle_closure2 != 0)) {
 if(Board != "Borders" & Board != "Dumfries and Galloway" & Board != "Shetland" & Board != "Orkney" 
                           & Board != "Western Isles" & Board != "National Golden Jubilee"){
-dcrs_closure_ps_plot2 +
+dcrs_closure_ps_plot +
   theme(text = element_text(size = 8),
         plot.title.position = "plot")
 } else  
   {dcrs_closure_plot +
   theme(text = element_text(size = 8),
         plot.title.position = "plot")
-}
+}} else {"Not enough data"}
 ```
 
 ```{r, fig.width=6,fig.height=3.1} 

@@ -3,7 +3,12 @@
 
 library(dplyr)
 library(ggplot2)
+library(HISfunnel)
 # chart 3 - 6 monthly not in order funnel ---------------------------------------------
+
+#Open function for creating funnel plots
+#source("Functions/20230320 plot_funnel.R") 
+#devtools::install('N:/Evidence/DMBI/HIS Approach to Measurement/11 Github/HISfunnel')
 
 #Find start of last 6 months for correct period ###Make annual if the reports are all annual now?###
 six_month_date <- end_date - 182
@@ -19,21 +24,42 @@ dcrs_data_cases <- dcrs_data %>%
   filter(`Created On` >= six_month_date & `Created On` < end_date) %>%
   group_by(`Health Board`) %>%
   summarise(total_not_in_order = sum(`Case Status` == "Case not in Order"),
-            case_total = sum(`Case Status` == "Case in Order" | `Case Status` == "Case not in Order"))
+            case_total = sum(`Case Status` == "Case in Order" | `Case Status` == "Case not in Order"),
+            proportions = total_not_in_order/case_total)
 
-#Open function for creating funnel plots
-source("Functions/20230320 plot_funnel.R") 
+dcrs_nio_funnel_data <- HISfunnel::plot_funnel(data=dcrs_data_cases, subgroup=`Health Board`, denom=case_total, num=total_not_in_order, highlight = Board, 
+                                               data_instead = TRUE) %>% filter(`Health Board` == Board)    
 
 #Use function to create nio funnel plot
-dcrs_nio_funnel <- plot_funnel(dat=dcrs_data_cases, subgroup=`Health Board`, denom=case_total, num=total_not_in_order, highlight = Board, 
-                                 lblx="Number of Reviews", lbly="% Not in Order", 
-                                 ttl="Chart 3: Funnel plot of percentage MCCDs ‘not in order’ for randomised cases ", sbttl=sixmonth)
-            
+dcrs_nio_funnel <- HISfunnel::plot_funnel(data=dcrs_data_cases, subgroup=`Health Board`, denom=case_total, num=total_not_in_order, 
+                                          SPC_type = "p", lblx="Number of Reviews", lbly="% Not in Order") + 
+  labs(title = "Chart 3: Funnel plot of percentage MCCDs not in order for randomised cases",
+    subtitle = sixmonth
+  ) +  
+  # Label selected board
+  geom_text_repel(data = dcrs_nio_funnel_data,
+                  aes(x = case_total, y = area_prop * 100, label = `Health Board`),
+                  size = 3) +
+  # Highlight selected board
+  geom_point(data = dcrs_nio_funnel_data, 
+             aes(x = case_total, y = area_prop * 100), 
+             size = 1.5, stroke = 1.5, colour = "#0F3D6B", #HIS dark blue
+  ) +
+  scale_x_continuous(expand = c(0.00,0.00)) +
+  scale_y_continuous(expand = c(0.00,0.00)) +
+  coord_cartesian(ylim = c(0, max(dcrs_data_cases$proportions * 120)), xlim = c(0, max(dcrs_data_cases$case_total) * 1.02))
+
+dcrs_nio_funnel
+     
+ggsave(dcrs_nio_funnel, 
+       filename = "Charts/dcrs_nio_funnel.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
 
 # summary text not in order funnel ----------------------------------------
 
 #nio funnel narrative - identify where a point is in relation to limits
-nio_outliers <- subgroup_data %>%
+nio_outliers <- dcrs_nio_funnel_data %>%
   mutate(outlier_text = case_when(z_score > 2 ~ "high compared to the Scotland average",
                                   z_score < -2 ~ "low compared to the Scotland average",
                                   z_score > 3 ~ "a high outlier compared to the Scotland average",
@@ -43,7 +69,7 @@ nio_outliers <- subgroup_data %>%
   pull(outlier_text)
 
 #Note for key messages if any outlying signals are found
-nio_outliers_summary <- subgroup_data %>%
+nio_outliers_summary <- dcrs_nio_funnel_data %>%
   mutate(outlier_text = case_when(z_score > 3 ~ paste0("The board was a high outlier compared to the Scotland average for cases 'not in order' in ",sixmonth,"."),
                                   z_score < -3 ~ paste0("The board was a low outlier compared to the Scotland average for cases 'not in order' in ",sixmonth,"."),
                                   TRUE ~ "")) %>%
@@ -62,19 +88,43 @@ dcrs_data_replace <- dcrs_data %>%
   group_by(`Health Board`) %>%
   summarise(total_replacement = sum(outcome == "Replacement"),
             total_outcome = sum(outcome == "Replacement" | outcome == "Email" | outcome == "No issues" |
-                                  outcome == "Reported to PF"))
+                                  outcome == "Reported to PF"),
+            proportions = total_replacement/total_outcome)
+
+dcrs_replace_funnel_data <- HISfunnel::plot_funnel(data=dcrs_data_replace, subgroup=`Health Board`, denom=total_outcome, num=total_replacement, highlight = Board, 
+                                                   data_instead = TRUE) %>% filter(`Health Board` == Board)    
+
 
 #Use function to create replacement funnel plot
-dcrs_replace_funnel <- plot_funnel(dat=dcrs_data_replace, subgroup=`Health Board`, denom=total_outcome, num=total_replacement, highlight = Board, 
-                                 lblx="Number of Reviews", lbly="% replacement certificates", 
-                                 ttl="Chart 4: Funnel chart of percentage of MCCDs requiring a replacement", sbttl=year3)
+dcrs_replace_funnel <- plot_funnel(data=dcrs_data_replace, subgroup=`Health Board`, denom=total_outcome, num=total_replacement, 
+                                   SPC_type = "p", lblx="Number of Reviews", lbly="% replacement certificates") + 
+  labs(title = "Chart 4: Funnel chart of percentage of MCCDs requiring a replacement",
+       subtitle = year3
+  ) +
+  # Label selected board
+  geom_text_repel(data = dcrs_replace_funnel_data,
+                  aes(x = total_outcome, y = area_prop * 100, label = `Health Board`),
+                  size = 3) +
+  # Highlight selected board
+  geom_point(data = dcrs_replace_funnel_data, 
+             aes(x = total_outcome, y = area_prop * 100), 
+             size = 1.5, stroke = 1.5, colour = "#0F3D6B", #HIS dark blue
+  ) +
+  scale_x_continuous(expand = c(0.00,0.00)) +
+  scale_y_continuous(expand = c(0.00,0.00)) +
+  coord_cartesian(ylim = c(0, max(dcrs_data_replace$proportions * 120)), xlim = c(0, max(dcrs_data_replace$total_outcome) * 1.02))
 
+dcrs_replace_funnel
 
+ggsave(dcrs_replace_funnel, 
+       filename = "Charts/dcrs_replace_funnel.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
 
 # summary text replacement required ---------------------------------------
 
 #replace funnel narrative - identify where a point is in relation to limits
-replace_outliers <- subgroup_data %>%
+replace_outliers <- dcrs_replace_funnel_data %>%
   mutate(outlier_text = case_when(z_score > 2 ~ "high compared to the Scotland average",
                                   z_score < -2 ~ "low compared to the Scotland average",
                                   z_score > 3 ~ "a high outlier compared to the Scotland average",
@@ -84,7 +134,7 @@ replace_outliers <- subgroup_data %>%
   pull(outlier_text)
 
 #Note for key messages if any outlying signals are found
-replace_outliers_summary <- subgroup_data %>%
+replace_outliers_summary <- dcrs_replace_funnel_data %>%
   mutate(outlier_text = case_when(z_score > 3 ~ paste0("The board was a high outlier compared to the Scotland average for cases requiring replacement in ",year3,"."),
                                   z_score < -3 ~ paste0("The board was a low outlier compared to the Scotland average for cases requiring replacement in ",year3,"."),
                                   TRUE ~ "")) %>%

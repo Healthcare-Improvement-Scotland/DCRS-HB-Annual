@@ -24,9 +24,9 @@ dcrs_data <- dcrs_raw %>%
                              substr(`MCCD Status`,1,5) == "Email" | substr(`MCCD Status`,1,5) == "MCCD " ~"Email",
                              substr(`MCCD Status`,1,5) == "Repla" ~ "Replacement",
                              TRUE ~ `Case Status`),
-         #identify as primary or secondary care case emccd (only primary are currently electric)
-         primary_secondary = case_when(emccd == 1 ~ "Primary",
-                                       `Serial Number (MCCD)` !="" & emccd != 1 ~ "Secondary",
+         #identify as primary or secondary care case
+         primary_secondary = case_when(placeofdeathcheck == "Community" ~ "Primary",
+                                       placeofdeathcheck == "Hospital" | placeofdeathcheck == "Hospice"  ~ "Secondary",
                                        TRUE ~ "Uknown"),
          #Set certain financial years for reporting (1 is rarely used in this report)
          `Created On` = as.Date(`Created On`, "%d/%m/%Y"),

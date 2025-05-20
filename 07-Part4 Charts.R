@@ -9,11 +9,12 @@ Board <- hdr
 ##closure chart 5 - total breakdown##
 #This chart is not selected for larger boards. More detailed primary/secondary care breakdown is used instead
 
+  
 #First stage of wrangling data into right layout and get percentages
 dcrs_data_wrangle_closure <- dcrs_data_report_all %>%
   select(Year, `Health Board`, closure_category, causal_timscale, cause_of_death,
          conditions_omitted, disposal_hazard, sequence_of_cause, cause_too_vague ) %>%
-  filter(Year == 3 & `Health Board` == "Board") %>%
+  filter(Year == 3) %>%
   transmute(across(c(causal_timscale, 
                      cause_of_death,
                      conditions_omitted,
@@ -29,17 +30,30 @@ dcrs_data_wrangle_closure2 <- dcrs_data_wrangle_closure %>%
   pivot_longer(cols = !c(Year, `Health Board`), 
                names_to = 'closure_category', 
                values_to = 'closure_rate') %>%
-  mutate(closure_category = str_wrap(closure_category , width = 18)) %>% #wrap to better fit text
-  mutate(closure_percent = percent(closure_rate, accuracy = 0.1)) %>%
-  select(closure_category, closure_rate, closure_percent) %>%
+  mutate(closure_category = str_wrap(closure_category , width = 18), #wrap to better fit text
+         closure_percent = percent(closure_rate, accuracy = 0.1),
+         rank_cases = case_when(`Health Board` == 'Board' ~ min_rank(closure_rate), TRUE ~ 0))  %>%
+  select(`Health Board`, closure_category, closure_rate, closure_percent, rank_cases) %>%
   filter(closure_rate != 0) #Remove any categories with no cases for neater chart
 
-#buffer for dynamic axis limit
-limit_for_y_axis <- max(dcrs_data_wrangle_closure2[,"closure_rate" ])+0.07
+case_count <- dcrs_data_wrangle_closure2 %>%
+  count(closure_category)
+
+case_count_board <- dcrs_data_wrangle_closure2 %>%
+  summarise(rank_cases = sum(rank_cases)) %>% pull(rank_cases)
+
+if(case_count_board >= 1) {
+  #Match back with wrangled dataset and filter out any rows with no data
+  dcrs_data_wrangle_closure2 <- dcrs_data_wrangle_closure2 %>%
+    left_join(case_count) %>%
+    filter(n == 2) } else
+    {dcrs_data_wrangle_closure2}
 
 #Create bar chart 5 in ranked order
-dcrs_closure_plot <- ggplot(dcrs_data_wrangle_closure2, aes(fct_reorder(closure_category, closure_rate), closure_rate)) +
-  geom_bar(stat = "identity", fill = "#0F3D6B", width=0.7) +  #set bar aesthetics
+dcrs_closure_plot <- ggplot(dcrs_data_wrangle_closure2, aes(fct_reorder(closure_category, closure_rate), 
+                                                            closure_rate,fill = `Health Board`)) +
+  geom_bar(stat = "identity", position = 'dodge', width=0.8) + #set bar aesthetics
+  scale_fill_manual(values = c("#8BB5E8", "#004578"), breaks=c('Scotland', 'Board'), name = "Location") +  #set bar aesthetics  
   labs(title = "Chart 5: Breakdown of clinical closure categories for ‘not in order’",   #set titles
        subtitle = year3,
        y = "",
@@ -49,21 +63,24 @@ dcrs_closure_plot <- ggplot(dcrs_data_wrangle_closure2, aes(fct_reorder(closure_
                               "disposal_hazard_rate" = "Disposal Hazard incorrect", 
                               "sequence_of_cause_rate" = "Sequence of Cause of Death incorrect", 
                               "cause_too_vague_rate" = "Cause of death too vague")) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +  #set percentage
-  expand_limits(x = 0, y = limit_for_y_axis) +                         #set dynamic axis limit
-  geom_text(aes(label=closure_percent), hjust=-0.2, size = 3) +  #set labels
+  scale_y_continuous(expand=c(0, 0), limits=c(0, max(dcrs_data_wrangle_closure2$closure_rate)*1.15),
+                     labels = scales::percent_format(accuracy = 1)) +  #set percentage                       #set dynamic axis limit
+  geom_text(aes(label=closure_percent), position = position_dodge(width = .9), hjust=-0.2, size = 2.5) +  #set labels
   theme_bw() +
   theme(axis.line = element_line(colour = "black"),  #set simple theme
+        legend.title=element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.border = element_blank(),
         panel.background = element_blank()) + 
   coord_flip()     #flip chart on side
 
-#dcrs_closure_plot        
+dcrs_closure_plot        
 #dcrs_data_wrangle_closure
 
+
 # Chart 5 primary/secondary closure breakdown-----------------------------------------------
+
 
 ##closure chart 5 - primary/secondary care breakdown##
 #This chart is not selected for smaller boards. More previous less detailed breakdown is used instead
@@ -125,17 +142,18 @@ dcrs_data_wrangle_ps2 <- dcrs_data_wrangle_ps %>%
   pivot_longer(cols = !c(Year, `Health Board`, primary_secondary), 
                names_to = 'closure_category', 
                values_to = 'closure_rate') %>%
-  mutate(closure_percent = percent(closure_rate, accuracy = 1)) %>%
+  mutate(closure_rate = case_when(is.na(closure_rate) ~ 0, TRUE ~ closure_rate),
+    closure_percent = percent(closure_rate, accuracy = 1)) %>%
   select(Year, primary_secondary, closure_category, closure_rate, closure_percent)
 
 #Get overall rate to use in chart lables
-ps_total_percent <- dcrs_data_wrangle_ps2 %>%
+ps_total <- dcrs_data_wrangle_ps2 %>%
   group_by(Year, closure_category) %>%
-  summarise(closure_rate_total = sum(closure_rate))
+  mutate(closure_rate_total = case_when(Year == '9' ~ sum(closure_rate)))
 
 #Combine primary/secondary care breakdown and overall rate.  Rename categories to be more readable
 dcrs_data_wrangle_ps2 <- dcrs_data_wrangle_ps2 %>%
-  left_join(ps_total_percent) %>%
+  left_join(ps_total) %>%
   mutate(closure_category = str_replace(closure_category, "causal_timscale_rate", "Causal timescales incorrect"), 
          closure_category = str_replace(closure_category, "cause_of_death_rate", "Cause of death incorrect"),
          closure_category = str_replace(closure_category, "conditions_omitted_rate", "Conditions omitted"), 
@@ -145,35 +163,37 @@ dcrs_data_wrangle_ps2 <- dcrs_data_wrangle_ps2 %>%
          closure_category = str_wrap(closure_category, width = 10))
 
 
-#buffer for dynamic axis limit
-#limit_for_y_axis <- max(dcrs_data_wrangle_ps2[,"closure_rate" ])+0.07
-
-
-##create primary secondary chart 5##
-
-dcrs_closure_ps_plot2 <- ggplot(dcrs_data_wrangle_ps2, aes(Year, closure_rate, fill = primary_secondary)) +
+dcrs_closure_ps_plot <- ggplot(dcrs_data_wrangle_ps2, aes(Year, closure_rate, fill = primary_secondary)) +
   geom_col() +
   facet_wrap(~ fct_reorder(closure_category, closure_rate_total), strip.position = "bottom", nrow = 1) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_y_continuous(expand=c(0, 0), limits=c(0, max(dcrs_data_wrangle_ps2$closure_rate_total)+0.02),
+                     labels = scales::percent_format(accuracy = 1)) +  #set percentage
 # update year references --------------------------------------------------
   labs(title = paste0("Chart 5: Breakdown of clinical closure categories ‘not in order’ for years ", y1, ", ", y2, " and ", y3, " by \nprimary and secondary care"), #set titles
        y = "", x = "Note: Year 7 - 2021/22     Year 8 - 2022/23     Year 9 - 2023/24") +
   scale_fill_manual(values = c("#143965", "#8BB5E8")) +
   geom_text(aes(label=closure_percent), size = 2, colour = "white", position = position_stack(vjust = .5)) +
   theme_bw() +
-  theme(axis.text.x = element_text(vjust = 0.5, hjust=1),
+  theme(axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(vjust = 0.5, hjust=0.2),
         strip.placement = "outside",
         panel.grid.major = element_blank(),
         panel.border = element_blank(),
         legend.title = element_blank(),
-        legend.position = c(0.1,0.9),
+        legend.position = c(0.1,0.81),
         legend.box.background = element_rect(colour = "grey"),
         panel.background = element_blank(),
         plot.title = element_text(size = 10),
         axis.title = element_text(size = 8,face="italic", hjust = 0.02),
-        strip.background = element_rect(fill=FALSE))
-#dcrs_closure_ps_plot2
+        strip.background = element_blank(),
+        panel.spacing = unit(0, 'points'))
 
+dcrs_closure_ps_plot
+
+#ggsave(dcrs_closure_plot, 
+#       filename = "Charts/dcrs_closure_plot.png",
+#       device = "png",
+#       height = 3.2, width = 6, units = "in")
 
 
 # chart 6 death too vague -------------------------------------------------
@@ -211,13 +231,15 @@ dcrs_data_wrangle_death_cause_2 <- dcrs_data_wrangle_death_cause %>%
 case_count <- dcrs_data_wrangle_death_cause_2 %>%
   count(cause_too_vague)
 
+case_count_board <- dcrs_data_wrangle_death_cause_2 %>%
+  summarise(rank_cases = sum(rank_cases)) %>% pull(rank_cases)
+
+if(case_count_board >= 1) {
 #Match back with wrangled dataset and filter out any rows with no data
 dcrs_data_wrangle_death_cause_2 <- dcrs_data_wrangle_death_cause_2 %>%
   left_join(case_count) %>%
-  filter(n == 2)
-
-#buffer for dynamic axis limit
-limit_for_y_axis <- max(dcrs_data_wrangle_death_cause_2[,"cause_too_vague_rate" ])+0.07
+  filter(n == 2) } else
+  {dcrs_data_wrangle_death_cause_2}
 
 #Create bar chart 6 in ranked order
 dcrs_closure_plot_death <- ggplot(dcrs_data_wrangle_death_cause_2, aes(fct_reorder(cause_too_vague, rank_cases), 
@@ -237,11 +259,12 @@ dcrs_closure_plot_death <- ggplot(dcrs_data_wrangle_death_cause_2, aes(fct_reord
                               "diabetes_subtype_rate" = "Diabetes sub-type", 
                               "stroke_rate" = "Stroke",
                               "lifestyle_factor_rate" = "Lifestyle factors (smoking, obesity, alcohol")) +                                   
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +  #set percentage
-  expand_limits(x = 0, y = limit_for_y_axis) +                         #set dynamic axis limit
+  scale_y_continuous(expand=c(0, 0), limits=c(0, max(dcrs_data_wrangle_death_cause_2$cause_too_vague_rate)*1.15),
+                     labels = scales::percent_format(accuracy = 1)) +  #set percentage                       #set dynamic axis limit
   geom_text(aes(label=cause_too_vague_percent), position = position_dodge(width = .9), hjust=-0.2, size = 3) +  #set labels
   theme_bw() +
   theme(axis.line = element_line(colour = "black"),  #set simple theme
+        legend.title=element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.border = element_blank(),
@@ -249,8 +272,13 @@ dcrs_closure_plot_death <- ggplot(dcrs_data_wrangle_death_cause_2, aes(fct_reord
   coord_flip()     #flip chart on side
 
 
-#dcrs_closure_plot_death
+dcrs_closure_plot_death
 #dcrs_data_wrangle__death_cause_2
+
+ggsave(dcrs_closure_plot_death, 
+       filename = "Charts/dcrs_closure_plot_death.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
 
 # Chart 7 closure admin ---------------------------------------------------
 ##closure admin chart 7##
@@ -294,13 +322,15 @@ dcrs_data_wrangle_admin_closure2 <- dcrs_data_wrangle_admin_closure %>%
 case_count <- dcrs_data_wrangle_admin_closure2 %>%
   count(closure_category_admin)
 
-#Match back with wrangled dataset and filter out any rows with no data
-dcrs_data_wrangle_admin_closure2 <- dcrs_data_wrangle_admin_closure2 %>%
-  left_join(case_count) %>%
-  filter(n == 2)
+case_count_board <- dcrs_data_wrangle_admin_closure2 %>%
+  summarise(rank_cases = sum(rank_cases)) %>% pull(rank_cases)
 
-#buffer for dynamic axis limit
-limit_for_y_axis <- max(dcrs_data_wrangle_admin_closure2[,"closure_rate_admin" ])+0.07
+if(case_count_board >= 1) {
+  #Match back with wrangled dataset and filter out any rows with no data
+  dcrs_data_wrangle_admin_closure2 <- dcrs_data_wrangle_admin_closure2 %>%
+    left_join(case_count) %>%
+    filter(n == 2) } else
+    {dcrs_data_wrangle_admin_closure2}
 
 #Create bar chart 7 in ranked order
 dcrs_closure_plot_admin <- ggplot(dcrs_data_wrangle_admin_closure2, aes(fct_reorder(closure_category_admin, rank_cases), 
@@ -323,20 +353,25 @@ dcrs_closure_plot_admin <- ggplot(dcrs_data_wrangle_admin_closure2, aes(fct_reor
                               "legibility_rate" = "Legibility", 
                               "consultant_incorrect_rate" = "Consultant's name incorrect",
                               "other_incorrect_rate" = "Other additional information incorrect")) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +  #set percentage
-  expand_limits(x = 0, y = limit_for_y_axis) +                         #set dynamic axis limit
+  scale_y_continuous(expand=c(0, 0), limits=c(0, max(dcrs_data_wrangle_admin_closure2$closure_rate_admin)*1.15),
+                     labels = scales::percent_format(accuracy = 1)) +  #set percentage                        #set dynamic axis limit
   geom_text(aes(label=closure_percent_admin), position = position_dodge(width = .9), hjust=-0.2, size = 2) +  #set labels
   theme_bw() +
   theme(axis.line = element_line(colour = "black"),  #set simple theme
+        legend.title=element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.border = element_blank(),
         panel.background = element_blank()) + 
   coord_flip()     #flip chart on side
 
-#dcrs_closure_plot_admin
+dcrs_closure_plot_admin
 #dcrs_data_wrangle__two_closure
 
+ggsave(dcrs_closure_plot_admin, 
+       filename = "Charts/dcrs_closure_plot_admin.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
 
 # chart 8 PF breakdown ----------------------------------------------------
 ##PF breakdown chart 8##
@@ -376,13 +411,15 @@ PF_data_wrangle_2 <- PF_data_wrangle %>%
 case_count <- PF_data_wrangle_2 %>%
   count(total_report_to_pf)
 
-#Match back with wrangled dataset and filter out any rows with no data
-PF_data_wrangle_2 <- PF_data_wrangle_2 %>%
-  left_join(case_count) %>%
-  filter(n == 2)
+case_count_board <- PF_data_wrangle_2 %>%
+  summarise(rank_cases = sum(rank_cases)) %>% pull(rank_cases)
 
-#buffer for dynamic axis limit
-limit_for_y_axis <- max(PF_data_wrangle_2[,"total_report_to_pf_rate" ])+0.07
+if(case_count_board >= 1) {
+  #Match back with wrangled dataset and filter out any rows with no data
+  PF_data_wrangle_2 <- PF_data_wrangle_2 %>%
+    left_join(case_count) %>%
+    filter(n == 2) } else
+    {PF_data_wrangle_2}
 
 #Create bar chart 8 in ranked order
 dcrs_PF_plot <- ggplot(PF_data_wrangle_2, aes(fct_reorder(total_report_to_pf, rank_cases), 
@@ -403,11 +440,12 @@ dcrs_PF_plot <- ggplot(PF_data_wrangle_2, aes(fct_reorder(total_report_to_pf, ra
                               "legal_order_rate" = "Legal Order",
                               "flagged_error_rate" = "Flagged in Error",
                               "other_report_pf_rate" = "Other Report to PF")) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +  #set percentage
-  expand_limits(x = 0, y = limit_for_y_axis) +                         #set dynamic axis limit
+  scale_y_continuous(expand=c(0, 0), limits=c(0, max(PF_data_wrangle_2$total_report_to_pf_rate)*1.15),
+                     labels = scales::percent_format(accuracy = 1)) +  #set percentage                      #set dynamic axis limit
   geom_text(aes(label=total_report_to_pf_percent), position = position_dodge(width = .9), hjust=-0.2, size = 3) +  #set labels
   theme_bw() +
   theme(axis.line = element_line(colour = "black"),  #set simple theme
+        legend.title=element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.border = element_blank(),
@@ -417,9 +455,13 @@ dcrs_PF_plot <- ggplot(PF_data_wrangle_2, aes(fct_reorder(total_report_to_pf, ra
 #If no data avialble for the board provide message instead of chart    
 } else {"Not enough data"}
 
-#dcrs_PF_plot
+dcrs_PF_plot
 #dcrs_data_wrangle_enquiry
 
+ggsave(dcrs_PF_plot, 
+       filename = "Charts/dcrs_PF_plot.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
 
 # chart 9 enquiry line ----------------------------------------------------
 ##enquiry line chart 9##
@@ -446,9 +488,6 @@ enquiry_data_wrangle <- dcrs_data_enquiry_all %>%
          hospice_clinical_advice_rate, hospice_process_advice_rate, funeral_director_rate, informant_or_family_rate,  
          signposted_rate, procurator_fiscal_rate, other_rate)
 
-#If data is availabe for the board then further wrangle the data and create chart
-if (nrow(enquiry_data_wrangle != 0)) {
-  
   #Flip data for charting layout
 enquiry_data_wrangle_2 <- enquiry_data_wrangle %>%
     pivot_longer(cols = !c(Year, `Health Board`), 
@@ -460,20 +499,22 @@ enquiry_data_wrangle_2 <- enquiry_data_wrangle %>%
     select(`Health Board`, enquiry_category_total, enquiry_rate, enquiry_percent, rank_cases) %>%
     filter(enquiry_rate != 0)
 
-  #Find cases with no data to be filtered out
-  case_count <- enquiry_data_wrangle_2 %>%
+#Find cases with no data to be filtered out
+case_count <- enquiry_data_wrangle_2 %>%
     count(enquiry_category_total)
-  
+
+case_count_board <- enquiry_data_wrangle_2 %>%
+  summarise(rank_cases = sum(rank_cases)) %>% pull(rank_cases)
+
+if(case_count_board >= 1) {
   #Match back with wrangled dataset and filter out any rows with no data
   enquiry_data_wrangle_2 <- enquiry_data_wrangle_2 %>%
     left_join(case_count) %>%
-    filter(n == 2)  
-    
-  #buffer for dynamic axis limit
-  limit_for_y_axis <- max(enquiry_data_wrangle_2[,"enquiry_rate" ])+0.07
-  
-  #Create bar chart 9 in ranked order
-  dcrs_enquiry_plot <- ggplot(enquiry_data_wrangle_2, aes(fct_reorder(enquiry_category_total, rank_cases), 
+    filter(n == 2) } else
+    {enquiry_data_wrangle_2}
+
+#Create bar chart 9 in ranked order
+dcrs_enquiry_plot <- ggplot(enquiry_data_wrangle_2, aes(fct_reorder(enquiry_category_total, rank_cases), 
                                                           enquiry_rate,  fill = `Health Board`)) +
     geom_bar(stat = "identity", position = 'dodge', width=0.8) + #set bar aesthetics
     scale_fill_manual(values = c("#8BB5E8", "#004578"), breaks=c('Scotland', 'Board'), name = "Location") +  #set bar aesthetics
@@ -492,23 +533,26 @@ enquiry_data_wrangle_2 <- enquiry_data_wrangle %>%
                                 "procurator_fiscal_rate" = "Procurator Fiscal",
                                 "signposted_rate" = "Signposted", 
                                 "other_rate" = "Other")) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +  #set percentage
-    expand_limits(x = 0, y = limit_for_y_axis) +                         #set dynamic axis limit
+    scale_y_continuous(expand=c(0, 0), limits=c(0, max(enquiry_data_wrangle_2$enquiry_rate)*1.15),
+                       labels = scales::percent_format(accuracy = 1)) +  #set percentage                     #set dynamic axis limit
     geom_text(aes(label=enquiry_percent), position = position_dodge(width = .9), hjust=-0.2, size = 2.5) +  #set labels
     theme_bw() +
     theme(axis.line = element_line(colour = "black"),  #set simple theme
+          legend.title=element_blank(),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.border = element_blank(),
           panel.background = element_blank()) + 
     coord_flip()     #flip chart on side
 
-#If no data avialble for the board provide message instead of chart    
-} else {"Not enough data"}
 
-#dcrs_enquiry_plot
+dcrs_enquiry_plot
 #dcrs_data_wrangle_enquiry
 
+ggsave(dcrs_enquiry_plot, 
+       filename = "Charts/dcrs_enquiry_plot.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
 
 # chart 10 hospital review ------------------------------------------------
 ##set hospital chart review data chart 10 - Done in 3 parts for each year then combined##
@@ -601,7 +645,7 @@ DCRS_Data_Hosp_Chart2 <- left_join(DCRS_Data_Hosp_Chart, hosp_ranking) %>%
          name = factor(name, levels=c("Case Report to PF", "Case Not in Order", "Case in Order")),
          Locname = str_wrap(Locname , width = 18))
 
-
+max_value <- DCRS_Data_Hosp_Chart %>% summarise(max_value = max(case_total)) %>% pull(max_value)
 
 ##create hospital bar chart 10##
 hosp_review_chart <- ggplot(DCRS_Data_Hosp_Chart2, aes(YEAR, value, fill=name)) + 
@@ -613,6 +657,7 @@ hosp_review_chart <- ggplot(DCRS_Data_Hosp_Chart2, aes(YEAR, value, fill=name)) 
        y = "", x = "Note: Year 7 - 2021/22     Year 8 - 2022/23     Year 9 - 2023/24") +
   # scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
   scale_fill_manual(values = c("#097480", "#8BB5E8", "#0F3D6B")) +
+  scale_y_continuous(expand=c(0, 0), limits=c(0, max_value+0.07)) +
   geom_text(aes(label=case_percentage), size = 2.5, check_overlap = TRUE, position = position_stack(vjust = 0.5), colour = "white") +
   theme_bw() +
   theme(axis.line = element_line(colour = "black"),  #set simple theme
@@ -621,13 +666,19 @@ hosp_review_chart <- ggplot(DCRS_Data_Hosp_Chart2, aes(YEAR, value, fill=name)) 
         panel.border = element_blank(),
         legend.title = element_blank(),
         legend.position="bottom",
-        legend.box.background = element_rect(colour = "grey"),
+        legend.box.background = element_blank(),
         panel.background = element_blank(),
         plot.title = element_text(size = 10),
-        axis.title = element_text(size = 8,face="italic", hjust = 0.02),
-        strip.background = element_rect(fill=FALSE)) 
+        axis.title = element_text(size = 8,face="italic", hjust = 0.01),
+        strip.background = element_blank(),
+        panel.spacing = unit(0, 'points')) 
 
 hosp_review_chart
+
+ggsave(hosp_review_chart, 
+       filename = "Charts/hosp_review_chart.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
 
 # chart 11 hospice review -------------------------------------------------
 
@@ -721,6 +772,9 @@ DCRS_Data_Hospice_Chart2 <- left_join(DCRS_Data_Hospice_Chart, hospice_ranking) 
          name = factor(name, levels=c("Case Report to PF", "Case Not in Order", "Case in Order")),
          Locname = str_wrap(Locname , width = 18))
 
+max_value <- DCRS_Data_Hospice_Chart %>% summarise(max_value = max(case_total)) %>% pull(max_value)
+
+if (nrow(DCRS_Data_Hospice_Chart2 != 0)) {
 
 ##create hospice bar chart 11##
 hospice_review_chart <- ggplot(DCRS_Data_Hospice_Chart2, aes(YEAR, value, fill=name)) + 
@@ -732,6 +786,7 @@ hospice_review_chart <- ggplot(DCRS_Data_Hospice_Chart2, aes(YEAR, value, fill=n
        y = "", x = "Note: Year 7 - 2021/22     Year 8 - 2022/23     Year 9 - 2023/24") +
   # scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
   scale_fill_manual(values = c("#097480", "#8BB5E8", "#0F3D6B")) +
+  scale_y_continuous(expand=c(0, 0), limits=c(0, max_value +0.07)) +
   geom_text(aes(label=case_percentage), size = 2.5, check_overlap = TRUE, position = position_stack(vjust = 0.5), colour = "white") +
   theme_bw() +
   theme(axis.line = element_line(colour = "black"),  #set simple theme
@@ -740,14 +795,21 @@ hospice_review_chart <- ggplot(DCRS_Data_Hospice_Chart2, aes(YEAR, value, fill=n
         panel.border = element_blank(),
         legend.title = element_blank(),
         legend.position="bottom",
-        legend.box.background = element_rect(colour = "grey"),
+        legend.box.background = element_blank(),
         panel.background = element_blank(),
         plot.title = element_text(size = 10),
-        axis.title = element_text(size = 8,face="italic", hjust = 0.02),
-        strip.background = element_rect(fill=FALSE)) 
+        axis.title = element_text(size = 8,face="italic", hjust = 0.01),
+        strip.background = element_blank(),
+        panel.spacing = unit(0, 'points')) 
 
-#hospice_review_chart
+hospice_review_chart
 
+ggsave(hospice_review_chart, 
+       filename = "Charts/hospice_review_chart.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
+
+} else {"Not enough data"}
 
 # chart 12 cause and place of death ------------------------------------------------------
 
@@ -776,8 +838,8 @@ DCRS_Data_Chapter_rank <- DCRS_Data_Chapter %>%
 DCRS_Data_Chapter <- left_join(DCRS_Data_Chapter, DCRS_Data_Chapter_rank, by="DiagGrp") %>%
   filter(top5 <= 5)
 
-#buffer for dynamic axis limit
-limit_for_y_axis <- max(DCRS_Data_Chapter[,"case_total" ])+0.4
+
+if (nrow(DCRS_Data_Chapter != 0)) {
 
 ##create cause and place bar chart 12##
 diag_chart <- ggplot(DCRS_Data_Chapter, aes(fill=instgrp2, fct_reorder(DiagGrp, desc(case_total)), case_total)) + 
@@ -788,7 +850,7 @@ diag_chart <- ggplot(DCRS_Data_Chapter, aes(fill=instgrp2, fct_reorder(DiagGrp, 
        y = "Number",
        x = "") +
   scale_fill_manual(values = c("#0F3D6B", "#E3CEF6", "#097480", "#A9D0F5")) +
-  expand_limits(x = 0, y = limit_for_y_axis) +                         #set dynamic axis limit
+  scale_y_continuous(expand=c(0, 0), limits=c(0, max(DCRS_Data_Chapter$case_total)*1.08)) +
   geom_text(aes(label=case_percentage), size = 2.5, vjust = -0.2, position = position_dodge(width = 0.9), check_overlap = TRUE) +
   theme_bw() +
   theme(axis.line = element_line(colour = "black"),  #set simple theme
@@ -797,11 +859,18 @@ diag_chart <- ggplot(DCRS_Data_Chapter, aes(fill=instgrp2, fct_reorder(DiagGrp, 
         legend.title=element_blank(),
         legend.position="bottom",
         legend.key.size = unit(0.5, 'cm'),
+        legend.box.background = element_blank(),
         text = element_text(size = 9),
         panel.background = element_blank())   
 
 diag_chart
 
+ggsave(diag_chart, 
+       filename = "Charts/diag_chart.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
+
+} else {"Not enough data"}
 
 
 # summary text closure categories -----------------------------------------
@@ -1217,9 +1286,6 @@ top_cause_name <- top_cause %>%
   filter(row_number()==1) %>%
   pull(alt_value)
 
-#Step down capital letter and contain in quotations
-top_cause_name <- paste0("'",tolower(top_cause_name),"'")
-
 #Max total
 top_cause_number <- DCRS_Data_Chapter %>% group_by(DiagGrp) %>% summarise(case_total = sum(case_total)) %>% filter(case_total == max(case_total)) %>% pull(case_total)
 
@@ -1229,3 +1295,6 @@ top_cause_place <- tolower(top_cause_place)
 
 #Max percent
 top_cause_place_percentage <- DCRS_Data_Chapter %>% filter(DiagGrp == top_cause_name, case_total == max(case_total)) %>% pull(case_percentage)
+
+#Step down capital letter and contain in quotations
+top_cause_name <- paste0("'",tolower(top_cause_name),"'")

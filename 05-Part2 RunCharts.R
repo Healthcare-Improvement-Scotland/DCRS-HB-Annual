@@ -88,9 +88,10 @@ scot_run <- ggplot(dataset, aes(x = subgroup)) +
                date_labels = "%b\n%Y")+
   theme_classic()+
   theme(plot.title = element_text(size = 10),
-        axis.title.x = element_text(size = 10),
+        plot.title.position = "plot",
+        axis.title.x = element_text(size = 8),
         axis.text.x = element_text(size = 7.5, angle = 45, hjust = 1),
-        axis.title.y = element_text(size = 10))
+        axis.title.y = element_text(size = 8))
 #debugonce(RunChart)
 
 scot_run
@@ -98,6 +99,10 @@ scot_run
 detach("package:plyr", unload=TRUE)
 detach("package:zoo", unload=TRUE)
 
+ggsave(scot_run, 
+       filename = "Charts/scot_run.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
 
 # summary text Scotland run chart -----------------------------------------
 
@@ -331,16 +336,20 @@ board_run <- ggplot(dataset, aes(x = subgroup)) +
                date_labels = "%b\n%Y")+
   theme_classic()+
   theme(plot.title = element_text(size = 10),
-        axis.title.x = element_text(size = 10),
+        plot.title.position = "plot",
+        axis.title.x = element_text(size = 8),
         axis.text.x = element_text(size = 7.5, angle = 45, hjust = 1),
-        axis.title.y = element_text(size = 10))
+        axis.title.y = element_text(size = 8))
 
 board_run
 
 detach("package:plyr", unload=TRUE)
 detach("package:zoo", unload=TRUE)
 
-
+ggsave(board_run, 
+       filename = "Charts/board_run.png",
+       device = "png",
+       height = 3.2, width = 6, units = "in")
 
 # summary text board run chart --------------------------------------------
 
