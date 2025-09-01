@@ -4,6 +4,7 @@
 library(dplyr)
 library(ggplot2)
 library(HISfunnel)
+library(ggrepel)
 # chart 3 - 6 monthly not in order funnel ---------------------------------------------
 
 #Open function for creating funnel plots
@@ -47,7 +48,10 @@ dcrs_nio_funnel <- HISfunnel::plot_funnel(data=dcrs_data_cases, subgroup=`Health
   ) +
   scale_x_continuous(expand = c(0.00,0.00)) +
   scale_y_continuous(expand = c(0.00,0.00)) +
-  coord_cartesian(ylim = c(0, max(dcrs_data_cases$proportions * 120)), xlim = c(0, max(dcrs_data_cases$case_total) * 1.02))
+  coord_cartesian(ylim = c(0, max(dcrs_data_cases$proportions * 120)), xlim = c(0, max(dcrs_data_cases$case_total) * 1.02)) +
+  theme(axis.text = element_text(size = 8),
+        axis.title = element_text(size = 8))   
+
 
 dcrs_nio_funnel
      
@@ -112,7 +116,9 @@ dcrs_replace_funnel <- plot_funnel(data=dcrs_data_replace, subgroup=`Health Boar
   ) +
   scale_x_continuous(expand = c(0.00,0.00)) +
   scale_y_continuous(expand = c(0.00,0.00)) +
-  coord_cartesian(ylim = c(0, max(dcrs_data_replace$proportions * 120)), xlim = c(0, max(dcrs_data_replace$total_outcome) * 1.02))
+  coord_cartesian(ylim = c(0, max(dcrs_data_replace$proportions * 120)), xlim = c(0, max(dcrs_data_replace$total_outcome) * 1.02)) +
+  theme(axis.text = element_text(size = 8),
+        axis.title = element_text(size = 8))  
 
 dcrs_replace_funnel
 
@@ -145,7 +151,7 @@ replace_outliers_summary <- dcrs_replace_funnel_data %>%
 ###Key messages note###
 
 #Combine all messages around significant outcomes and identify if any are present
-key_message_note <- data.frame(key_message_note = c(board_new_change_status, nio_outliers_summary, replace_outliers_summary)) %>%
+key_message_note <- data.frame(key_message_note = c(hb_new_change_status, nio_outliers_summary, replace_outliers_summary)) %>%
   mutate(note_flag = case_when(key_message_note == "" ~ 0, TRUE ~ 1))
 
 #Find how many, if any, significant outcome messages are present
@@ -154,7 +160,7 @@ count_key <- key_message_note %>% summarise(count_key = sum(note_flag)) %>% pull
 #If any are present then include in note for key messages, otherwise state that there are no significant outcomes
 key_message <- key_message_note %>% 
   mutate(key_message = case_when(count_key != 0 ~ key_message_note,
-                                 TRUE ~ "The board had no significant outcomes in the analysis."),
+                                 TRUE ~ "The board had no significant outcomes in run chart or funnel plot analysis."),
          duplicate_flag = !duplicated(key_message)) %>%
   filter(duplicate_flag == TRUE) %>%
   pull(key_message)

@@ -69,9 +69,9 @@ table(DCRS_data$prmccdhealthboard, exclude = TRUE)
 DCRS_for_linkage <- DCRS_data %>% 
   mutate(format = ifelse(prmccdserialnumber==" ", "NA",
                          ifelse(prmccdserialnumber %like% "^5", "electronic", "manual")),
-         dateentered = dmy_hm(dateentered),
-         datemodified = dmy_hm(datemodified),
-         prdatestatus = dmy_hm(prdatestatus),
+         dateentered = dmy(dateentered),
+         datemodified = dmy(datemodified),
+         prdatestatus = dmy(prdatestatus),
          prdob = dmy(prdob),
          prdod = dmy(prdod),
          prstatuscode = as.factor(prstatuscode),
@@ -113,12 +113,16 @@ NRSdata2015 = read.csv("Data/2015DCRS.tsv", sep = "\t")
 
 NRSdata2023 = read.csv("Data/2023DCRSv3.tsv", sep = "\t") 
 
-NRSdata2024 = read.csv("Data/2024DCRS - Jan-April.tsv", sep = "\t") 
+NRSdata2024 = read.csv("Data/2024DCRS.tsv", sep = "\t") 
+
+NRSdata2025 = read.csv("Data/2025DCRS-Jan-April.tsv", sep = "\t") 
+
+table(NRSdata2025$Date.of.registration)
 
 
 # update files to combine -------------------------------------------------
 ###Combine old a new NRS datasets
-NRSdata_for_linkage <- rbind(NRSdata2015, NRSdata2022, NRSdata2023, NRSdata2024) %>% 
+NRSdata_for_linkage <- rbind(NRSdata2015, NRSdata2022, NRSdata2023, NRSdata2024, NRSdata2025) %>% 
   rename(CHI = chinumber) %>%
   mutate(Date.of.registration = as.Date(Date.of.registration,"%d%b%Y"),
          Date.of.death = as.Date(Date.of.death,"%d%b%Y"),

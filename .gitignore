@@ -1,0 +1,23 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# 'data' folder #
+Data/
+
+# 'report' folder #
+Reports/
+
+# 'charts' folder #
+Charts/
+
+# funnel plot function #
+Functions/20230320 plot_funnel.R
+
+# Common text files that may contain data #
+*.[cC][sS][vV]
+*.[tT][xX][tT]
+
+# Excel files #
+*.[xX][lL][sS]*

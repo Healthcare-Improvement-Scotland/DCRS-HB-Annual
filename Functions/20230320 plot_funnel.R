@@ -98,6 +98,7 @@ plot_funnel <- function(dat, # Dataframe
     )
   
   limit_max_y = max(subgroup_data$area_prop) * 120
+  limit_max_x = max(limit_data$x_value) * 1.02
   
   # Plot mean, control limits and warning limits---------------------------
 
@@ -128,9 +129,9 @@ plot_funnel <- function(dat, # Dataframe
                  size = 1.90, stroke = 1.55, colour = "#004380", #HIS dark blue
       )+
       # Label selected board
-      geom_text(data = subgroup_data %>% filter(name == highlight),
+    geom_text_repel(data = subgroup_data %>% filter(name == highlight),
                 aes(x = !!rlang::ensym(denom), y = area_prop * 100, label = board_label),
-                hjust = -0.4, size = 2) +
+                 size = 2) +
       # create legend--------------------------------------------------------
     scale_shape_manual(name = "", values = c(subgroup = 21)) +
       scale_linetype_manual(
@@ -150,9 +151,9 @@ plot_funnel <- function(dat, # Dataframe
       title = ttl,
       subtitle = sbttl) +
       # Add thousandth separator-------------------------------------------
-    scale_x_continuous(n.breaks = 10, labels = scales::comma) +
-      # zoom into chart-------------------------------------------
-    coord_cartesian(ylim = c(0, limit_max_y)) +
+  scale_x_continuous(n.breaks = 10, expand = c(0.00,0.00), labels = scales::comma) +
+    scale_y_continuous(expand = c(0.00,0.00)) +
+    coord_cartesian(ylim = c(0, limit_max_y), xlim = c(0, limit_max_x)) +
       # x axis numbers to K, M, B-------------------------------------------
     #labels = label_number(scale_cut = cut_short_scale())+
     # Change background--------------------------------------------------

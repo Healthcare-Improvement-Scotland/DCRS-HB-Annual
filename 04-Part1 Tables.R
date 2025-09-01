@@ -13,9 +13,17 @@ dcrs_data_wrangle_total <- dcrs_data_total_all %>%
   pivot_wider(names_from = c(Year, `Health Board`), 
               values_from = 'count')
 
-#get percentages and set layout for table
+#get percentages and CI test and set layout for table
 dcrs_table_data_total <- dcrs_data_wrangle_total %>%
-  mutate(HB_percent_year1 = case_when(`1_Board` / sum(`1_Board`) == 1 ~ percent(`1_Board` / sum(`1_Board`), accuracy = 1),
+  mutate(HB_denom1 = sum(`2_Board`), HB_denom2 = sum(`3_Board`), 
+         ci_mn = BinomDiffCI(x1 = `2_Board`, n1 = HB_denom1, x2 = `3_Board`, n2 = HB_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         HB_ci_sig = case_when(HB_denom1 >= 10 & HB_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                            TRUE ~ ""),
+         Scot_denom1 = sum(`2_Scotland`), Scot_denom2 = sum(`3_Scotland`), 
+         ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_denom1, x2 = `3_Scotland`, n2 = Scot_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         Scot_ci_sig = case_when(HB_denom1 >= 10 & HB_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                               TRUE ~ ""),
+         HB_percent_year1 = case_when(`1_Board` / sum(`1_Board`) == 1 ~ percent(`1_Board` / sum(`1_Board`), accuracy = 1),
                                       TRUE ~ percent(`1_Board` / sum(`1_Board`), accuracy = 0.1)),
          HB_percent_year2 = case_when(`2_Board` / sum(`2_Board`) == 1 ~ percent(`2_Board` / sum(`2_Board`), accuracy = 1),
                                       TRUE ~ percent(`2_Board` / sum(`2_Board`), accuracy = 0.1)),
@@ -26,7 +34,9 @@ dcrs_table_data_total <- dcrs_data_wrangle_total %>%
          Scot_percent_year2 = case_when(`2_Scotland` / sum(`2_Scotland`) == 1 ~ percent(`2_Scotland` / sum(`2_Scotland`), accuracy = 1),
                                         TRUE ~ percent(`2_Scotland` / sum(`2_Scotland`), accuracy = 0.1)),
          Scot_percent_year3 = case_when(`3_Scotland` / sum(`3_Scotland`) == 1 ~ percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 1),
-                                        TRUE ~ percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1))) %>% 
+                                        TRUE ~ percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1)),
+         HB_percent_year3 = paste0(HB_percent_year3,HB_ci_sig),
+         Scot_percent_year3 = paste0(Scot_percent_year3,Scot_ci_sig)) %>% 
   select(event, `1_Scotland`, Scot_percent_year1, `1_Board`, HB_percent_year1,
          `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
          `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3) %>%
@@ -84,6 +94,12 @@ dcrs_table_total <- flextable(dcrs_table_data_total)%>%
 
 dcrs_table_total
 
+#Create caption for the table if a significant change is identified
+sig_table1 <- dcrs_table_data_total %>%
+  mutate(sig_flag = case_when(str_sub(Scot_percent_year3,-1) == "*" | str_sub(HB_percent_year3,-1) == "*" ~ 1)) %>% #Flag when significance as been found
+  summarise(sig_flag = sum(sig_flag, na.rm = TRUE)) %>%
+  mutate(sig_caption = case_when(sig_flag >= 1 ~ "*Significant change from previous year", TRUE ~ "")) %>% #Create label to add to table if significant value is found
+  pull(sig_caption)
 
 # table 2 in order/not in order -------------------------------------------
 
@@ -98,19 +114,74 @@ dcrs_data_wrangle <- dcrs_data_report_all %>%
   pivot_wider(names_from = c(Year, `Health Board`), 
               values_from = 'count')
 
-#get percentages and set layout for table
-dcrs_table_data <- dcrs_data_wrangle %>%
+
+#get percentages and CI test and set layout for table
+#Part1 overall proportion
+dcrs_table_data1 <- dcrs_data_wrangle %>%
   #Set dummy numbers for setting total percentages (1) and not in order breakdown percentage (2)
-  mutate(Link = case_when(event == 'total_in_order' | event == 'total_not_in_order' | event == 'total_report_to_pf' ~ 1, 
-                          event == 'total_email_amendment' | event == 'total_replacement_mccd' ~ 2)) %>% 
-  group_by(Link) %>% 
-  mutate(HB_percent_year2 = percent(`2_Board` / sum(`2_Board`), accuracy = 0.1),
-         HB_percent_year3 = percent(`3_Board` / sum(`3_Board`), accuracy = 0.1),
+  filter(event == 'total_in_order' | event == 'total_not_in_order' | event == 'total_report_to_pf') %>% 
+  mutate(HB_denom1 = sum(`2_Board`), HB_denom2 = sum(`3_Board`), 
+         ci_mn = BinomDiffCI(x1 = `2_Board`, n1 = HB_denom1, x2 = `3_Board`, n2 = HB_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         HB_ci_sig = case_when(HB_denom1 >= 10 & HB_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                          TRUE ~ ""),
+         Scot_denom1 = sum(`2_Scotland`), Scot_denom2 = sum(`3_Scotland`), 
+         ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_denom1, x2 = `3_Scotland`, n2 = Scot_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         Scot_ci_sig = case_when(Scot_denom1 >= 10 & Scot_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                            TRUE ~ ""),
+         HB_percent_year2 = percent(`2_Board` / sum(`2_Board`), accuracy = 0.1),
+         HB_percent_year3 = paste0(percent(`3_Board` / sum(`3_Board`), accuracy = 0.1),HB_ci_sig),
          Scot_percent_year2 = percent(`2_Scotland` / sum(`2_Scotland`), accuracy = 0.1),
-         Scot_percent_year3 = percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1)) %>% 
-  ungroup() %>% 
+         Scot_percent_year3 = paste0(percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1),Scot_ci_sig)) %>% 
   select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
          `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
+
+#extract current and previous year denominator to use in CI test
+HB_n1 <- dcrs_data_wrangle %>% filter(event == 'total_not_in_order') %>% pull(`2_Board`)
+HB_n2 <- dcrs_data_wrangle %>% filter(event == 'total_not_in_order') %>% pull(`3_Board`)
+
+#Part2 NiO proportions
+if (HB_n1 == 0 | HB_n2 == 0) { #CI test only works when both denominators are greater than zero, otherwise error occurs 
+  dcrs_table_data2 <- dcrs_data_wrangle %>%
+  filter(event == 'total_email_amendment' | event == 'total_replacement_mccd') %>% 
+  mutate(Scot_denom1 = sum(`2_Scotland`), Scot_denom2 = sum(`3_Scotland`), 
+         ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_denom1, x2 = `3_Scotland`, n2 = Scot_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         Scot_ci_sig = case_when(Scot_denom1 >= 10 & Scot_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                 TRUE ~ ""),
+         HB_percent_year2 = percent(`2_Board` / sum(`2_Board`), accuracy = 0.1),
+         HB_percent_year3 = percent(`3_Board` / sum(`3_Board`), accuracy = 0.1),
+         Scot_percent_year2 = percent(`2_Scotland` / sum(`2_Scotland`), accuracy = 0.1),
+         Scot_percent_year3 = paste0(percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1),Scot_ci_sig)) %>% 
+  select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
+         `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
+} else {   #create dataframe with no CI test if first condition is not met
+  dcrs_table_data2 <- dcrs_data_wrangle %>%
+  filter(event == 'total_email_amendment' | event == 'total_replacement_mccd') %>% 
+  mutate(HB_denom1 = sum(`2_Board`), HB_denom2 = sum(`3_Board`), 
+         ci_mn = BinomDiffCI(x1 = `2_Board`, n1 = HB_denom1, x2 = `3_Board`, n2 = HB_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         HB_ci_sig = case_when(HB_denom1 >= 10 & HB_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                               TRUE ~ ""),
+         Scot_denom1 = sum(`2_Scotland`), Scot_denom2 = sum(`3_Scotland`), 
+         ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_denom1, x2 = `3_Scotland`, n2 = Scot_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         Scot_ci_sig = case_when(Scot_denom1 >= 10 & Scot_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                 TRUE ~ ""),
+         HB_percent_year2 = percent(`2_Board` / sum(`2_Board`), accuracy = 0.1),
+         HB_percent_year3 = paste0(percent(`3_Board` / sum(`3_Board`), accuracy = 0.1),HB_ci_sig),
+         Scot_percent_year2 = percent(`2_Scotland` / sum(`2_Scotland`), accuracy = 0.1),
+         Scot_percent_year3 = paste0(percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1),Scot_ci_sig)) %>% 
+  select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
+         `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
+}
+
+#combine two dataframes for full table layout
+dcrs_table_data <- rbind(dcrs_table_data1, dcrs_table_data2) %>%
+  mutate(order = case_when(event == 'total_in_order' ~ 1,
+                           event == 'total_not_in_order' ~ 2,
+                           event == 'total_report_to_pf' ~ 5,
+                           event == 'total_email_amendment' ~ 3,
+                           event == 'total_replacement_mccd' ~ 4),
+         HB_percent_year2 = case_when(is.na(HB_percent_year2) ~ "0.0%", TRUE ~ HB_percent_year2),
+         HB_percent_year3 = case_when(is.na(HB_percent_year3) ~ "0.0%", TRUE ~ HB_percent_year3)) %>%
+  arrange(order) %>% select(!(order))
 
 
 #create table 2
@@ -139,7 +210,7 @@ dcrs_table <- flextable(dcrs_table_data)%>%
   merge_at(i = 2, j = 6:7, part = "header") %>%
   merge_at(i = 2, j = 8:9, part = "header") %>%  
   align(i = 2, part = "header", align = "center") %>%  
-  fontsize(size = 7.5, part = "all") %>%
+  fontsize(size = 8, part = "all") %>%
   vline(j=c(1, 3, 5, 7), border = brdr) %>% #Add borders (shape created earlier)
   border_outer(border = brdr) %>%
   fix_border_issues() %>%
@@ -152,6 +223,12 @@ dcrs_table <- flextable(dcrs_table_data)%>%
 
 dcrs_table
 
+#Create caption for the table if a significant change is identified
+sig_table2 <- dcrs_table_data %>%
+  mutate(sig_flag = case_when(str_sub(Scot_percent_year3,-1) == "*" | str_sub(HB_percent_year3,-1) == "*" ~ 1)) %>% #Flag when significance as been found
+  summarise(sig_flag = sum(sig_flag, na.rm = TRUE)) %>%
+  mutate(sig_caption = case_when(sig_flag >= 1 ~ "*Significant change from previous year", TRUE ~ "")) %>% #Create label to add to table if significant value is found
+  pull(sig_caption)
 
 # table 3 eMCCD/MCCD ------------------------------------------------------
 
@@ -167,13 +244,21 @@ dcrs_data_wrangle2 <- dcrs_data_report_all %>%
   pivot_wider(names_from = c(Year, `Health Board`), 
               values_from = 'count')
 
-#get percentages and set layout for part 1 or table
+#get percentages and CI test and set layout for part 1 or table
 dcrs_table_data2 <- dcrs_data_wrangle2 %>%
   filter(event == 'total_emccd' | event == 'total_mccd') %>%
-  mutate(HB_percent_year2 = percent(`2_Board` / sum(`2_Board`), accuracy = 0.1),
-         HB_percent_year3 = percent(`3_Board` / sum(`3_Board`), accuracy = 0.1),
+  mutate(HB_denom1 = sum(`2_Board`), HB_denom2 = sum(`3_Board`), 
+         ci_mn = BinomDiffCI(x1 = `2_Board`, n1 = HB_denom1, x2 = `3_Board`, n2 = HB_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         HB_ci_sig = case_when(HB_denom1 >= 10 & HB_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                               TRUE ~ ""),
+         Scot_denom1 = sum(`2_Scotland`), Scot_denom2 = sum(`3_Scotland`), 
+         ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_denom1, x2 = `3_Scotland`, n2 = Scot_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         Scot_ci_sig = case_when(Scot_denom1 >= 10 & Scot_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                 TRUE ~ ""),
+         HB_percent_year2 = percent(`2_Board` / sum(`2_Board`), accuracy = 0.1),
+         HB_percent_year3 = paste0(percent(`3_Board` / sum(`3_Board`), accuracy = 0.1),HB_ci_sig),
          Scot_percent_year2 = percent(`2_Scotland` / sum(`2_Scotland`), accuracy = 0.1),
-         Scot_percent_year3 = percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1)) %>% 
+         Scot_percent_year3 = paste0(percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1),Scot_ci_sig)) %>% 
   select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
          `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
 
@@ -183,24 +268,83 @@ dcrs_table_data3 <- dcrs_data_wrangle2 %>%
   mutate(Link = case_when(event == 'total_emccd' ~ 1, 
                           event == 'total_mccd' ~ 2))
 
-#get percentages and set layout for part 3 of table
-dcrs_table_data4 <- dcrs_data_wrangle2 %>%
-  filter(event == 'emccd_in_order' | event == 'emccd_to_pf' | event == 'mccd_in_order' | event == 'mccd_to_pf') %>%
-  #Set dummy numbers for setting electronic case percentages (1) and paper percentage (2)
-  mutate(Link = case_when(event == 'emccd_in_order' | event == 'emccd_to_pf' ~ 1, 
-                          event == 'mccd_in_order' | event == 'mccd_to_pf' ~ 2)) %>%
-  left_join(dcrs_table_data3, dcrs_table_data4, by = 'Link') %>%
-  mutate(HB_percent_year2 = percent(`2_Board.x` / `2_Board.y`, accuracy = 0.1),
-         HB_percent_year3 = percent(`3_Board.x` / `3_Board.y`, accuracy = 0.1),
-         Scot_percent_year2 = percent(`2_Scotland.x` / `2_Scotland.y`, accuracy = 0.1),
-         Scot_percent_year3 = percent(`3_Scotland.x` / `3_Scotland.y`, accuracy = 0.1)) %>%
-  rename(`event` = `event.x`, `2_Board` = `2_Board.x`, `3_Board` = `3_Board.x`,
-         `2_Scotland` = `2_Scotland.x`, `3_Scotland` = `3_Scotland.x`) %>%
+#extract current and previous year denominator to use in CI test
+HB_n1 <- dcrs_data_wrangle2 %>% filter(event == 'total_emccd') %>% pull(`2_Board`)
+HB_n2 <- dcrs_data_wrangle2 %>% filter(event == 'total_emccd') %>% pull(`3_Board`)
+Scot_n1 <- dcrs_data_wrangle2 %>% filter(event == 'total_emccd') %>% pull(`2_Scotland`)
+Scot_n2 <- dcrs_data_wrangle2 %>% filter(event == 'total_emccd') %>% pull(`3_Scotland`)
+
+#get percentages and set layout for part 3 of table (emccd)
+if (HB_n1 == 0 | HB_n2 == 0) { #CI test only works when both denominators are greater than zero, otherwise error occurs 
+dcrs_table_data3 <- dcrs_data_wrangle2 %>%
+  filter(event == 'emccd_in_order' | event == 'emccd_to_pf') %>%
+  mutate(ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_n1 , x2 = `3_Scotland`, n2 = Scot_n2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         Scot_ci_sig = case_when(Scot_n1 >= 10 & Scot_n2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                 TRUE ~ ""),
+         HB_percent_year2 = percent(`2_Board` / HB_n1, accuracy = 0.1),
+         HB_percent_year3 = percent(`3_Board` / HB_n2, accuracy = 0.1),
+         Scot_percent_year2 = percent(`2_Scotland` / Scot_n1, accuracy = 0.1),
+         Scot_percent_year3 = paste0(percent(`3_Scotland` / Scot_n2, accuracy = 0.1),Scot_ci_sig)) %>%
   select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
          `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
+} else {  #create dataframe with no CI test if first condition is not met
+  dcrs_table_data3 <- dcrs_data_wrangle2 %>%
+  filter(event == 'emccd_in_order' | event == 'emccd_to_pf') %>%
+  #Set dummy numbers for setting electronic case percentages (1) and paper percentage (2)
+    mutate(ci_mn = BinomDiffCI(x1 = `2_Board`, n1 = HB_n1 , x2 = `3_Board`, n2 = HB_n2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+           HB_ci_sig = case_when(HB_n1 >= 10 & HB_n2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                   TRUE ~ ""),
+           ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_n1 , x2 = `3_Scotland`, n2 = Scot_n2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+           Scot_ci_sig = case_when(Scot_n1 >= 10 & Scot_n2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                   TRUE ~ ""),
+           HB_percent_year2 = percent(`2_Board` / HB_n1, accuracy = 0.1),
+           HB_percent_year3 = paste0(percent(`3_Board` / HB_n2, accuracy = 0.1),HB_ci_sig),
+           Scot_percent_year2 = percent(`2_Scotland` / Scot_n1, accuracy = 0.1),
+           Scot_percent_year3 = paste0(percent(`3_Scotland` / Scot_n2, accuracy = 0.1),Scot_ci_sig)) %>%
+    select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
+           `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
+}
 
-#combine all parts into 1 table
-dcrs_table_data5 <- rbind(dcrs_table_data2, dcrs_table_data4) %>%
+#extract current and previous year denominator to use in CI test
+HB_n1 <- dcrs_data_wrangle2 %>% filter(event == 'total_mccd') %>% pull(`2_Board`)
+HB_n2 <- dcrs_data_wrangle2 %>% filter(event == 'total_mccd') %>% pull(`3_Board`)
+Scot_n1 <- dcrs_data_wrangle2 %>% filter(event == 'total_mccd') %>% pull(`2_Scotland`)
+Scot_n2 <- dcrs_data_wrangle2 %>% filter(event == 'total_mccd') %>% pull(`3_Scotland`)
+
+#get percentages and set layout for part 3 of table (mccd)
+if (HB_n1 == 0 | HB_n2 == 0) { #CI test only works when both denominators are greater than zero, otherwise error occurs 
+  dcrs_table_data4 <- dcrs_data_wrangle2 %>%
+    filter(event == 'mccd_in_order' | event == 'mccd_to_pf') %>%
+    mutate(ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_n1 , x2 = `3_Scotland`, n2 = Scot_n2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+           Scot_ci_sig = case_when(Scot_n1 >= 10 & Scot_n2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                   TRUE ~ ""),
+           HB_percent_year2 = percent(`2_Board` / HB_n1, accuracy = 0.1),
+           HB_percent_year3 = percent(`3_Board` / HB_n2, accuracy = 0.1),
+           Scot_percent_year2 = percent(`2_Scotland` / Scot_n1, accuracy = 0.1),
+           Scot_percent_year3 = paste0(percent(`3_Scotland` / Scot_n2, accuracy = 0.1),Scot_ci_sig)) %>%
+    select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
+           `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
+} else {  #create dataframe with no CI test if first condition is not met
+  dcrs_table_data4 <- dcrs_data_wrangle2 %>%
+    filter(event == 'mccd_in_order' | event == 'mccd_to_pf') %>%
+    #Set dummy numbers for setting electronic case percentages (1) and paper percentage (2)
+    mutate(ci_mn = BinomDiffCI(x1 = `2_Board`, n1 = HB_n1 , x2 = `3_Board`, n2 = HB_n2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+           HB_ci_sig = case_when(HB_n1 >= 10 & HB_n2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                 TRUE ~ ""),
+           ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_n1 , x2 = `3_Scotland`, n2 = Scot_n2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+           Scot_ci_sig = case_when(Scot_n1 >= 10 & Scot_n2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                   TRUE ~ ""),
+           HB_percent_year2 = percent(`2_Board` / HB_n1, accuracy = 0.1),
+           HB_percent_year3 = paste0(percent(`3_Board` / HB_n2, accuracy = 0.1),HB_ci_sig),
+           Scot_percent_year2 = percent(`2_Scotland` / Scot_n1, accuracy = 0.1),
+           Scot_percent_year3 = paste0(percent(`3_Scotland` / Scot_n2, accuracy = 0.1),Scot_ci_sig)) %>%
+    select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
+           `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
+}
+
+
+#combine all parts into one table
+dcrs_table_data5 <- rbind(dcrs_table_data2, dcrs_table_data3, dcrs_table_data4) %>%
   mutate(order = case_when(event == 'total_emccd' ~ 1,
                            event == 'emccd_in_order' ~ 2,
                            event == 'emccd_to_pf' ~ 3,
@@ -212,7 +356,7 @@ dcrs_table_data5 <- rbind(dcrs_table_data2, dcrs_table_data4) %>%
          `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
 
 
-#r create table 3
+#create table 3
 
 #Set up flextable
 dcrs_table2 <- flextable(dcrs_table_data5)%>%
@@ -239,7 +383,7 @@ dcrs_table2 <- flextable(dcrs_table_data5)%>%
   merge_at(i = 2, j = 6:7, part = "header") %>%
   merge_at(i = 2, j = 8:9, part = "header") %>%  
   align(i = 2, part = "header", align = "center") %>%    
-  fontsize(size = 7.5, part = "all") %>%
+  fontsize(size = 8, part = "all") %>%
   vline(j=c(1, 3, 5, 7), border = brdr) %>% #Add borders (shape created earlier)
   border_outer(border = brdr) %>%
   fix_border_issues() %>%
@@ -248,6 +392,14 @@ dcrs_table2 <- flextable(dcrs_table_data5)%>%
   width(j = 2:9, width = 0.6, unit = "in") %>%
   height_all(height = 0.2, part = "all") %>%
   hrule(rule = "exact", part = "all")   
+
+#check if significant change is present and creates note for bottom of table
+sig_table3 <- dcrs_table_data5 %>%
+  mutate(sig_flag = case_when(str_sub(Scot_percent_year3,-1) == "*" | str_sub(HB_percent_year3,-1) == "*" ~ 1)) %>% #Flag when significance as been found
+  summarise(sig_flag = sum(sig_flag, na.rm = TRUE)) %>%
+  mutate(sig_caption = case_when(sig_flag >= 1 ~ "*Significant change from previous year", TRUE ~ "")) %>% #Create label to add to table if significant value is found
+  pull(sig_caption)
+
 
 
 
@@ -258,40 +410,81 @@ dcrs_table2 <- flextable(dcrs_table_data5)%>%
 dcrs_data_wrangle_breach <- dcrs_data_report_all %>%
   select(Year, `Health Board`, total_ex_pf, total_breach,
          total_cd_unavailable, total_breach_other, total_breach_delay, 
-         total_breach_dcrsdelay, total_breach_otheralt) %>%
+         total_breach_dcrsdelay, total_breach_dual, total_breach_otheralt) %>%
   pivot_longer(cols = !c(Year, `Health Board`), 
                names_to = 'event', 
                values_to = 'count') %>%
   pivot_wider(names_from = c(Year, `Health Board`), 
               values_from = 'count')
 
+#extract current and previous year denominator to use in CI test
+HB_n1 <- dcrs_data_wrangle_breach %>% filter(event == 'total_ex_pf') %>% pull(`2_Board`)
+HB_n2 <- dcrs_data_wrangle_breach %>% filter(event == 'total_ex_pf') %>% pull(`3_Board`)
+Scot_n1 <- dcrs_data_wrangle_breach %>% filter(event == 'total_ex_pf') %>% pull(`2_Scotland`)
+Scot_n2 <- dcrs_data_wrangle_breach %>% filter(event == 'total_ex_pf') %>% pull(`3_Scotland`)
+
 #get percentages and set layout table 4 breach total
 dcrs_table_data_breach1 <- dcrs_data_wrangle_breach %>%
-  filter(event == 'total_ex_pf' | event == 'total_breach') %>%
-  mutate(HB_percent_year2 = percent(`2_Board` / lag(`2_Board`), accuracy = 0.1),
-         HB_percent_year3 = percent(`3_Board` / lag(`3_Board`), accuracy = 0.1),
-         Scot_percent_year2 = percent(`2_Scotland` / lag(`2_Scotland`), accuracy = 0.1),
-         Scot_percent_year3 = percent(`3_Scotland` / lag(`3_Scotland`), accuracy = 0.1)) %>% 
+  filter(event == 'total_breach') %>%
+  mutate(ci_mn = BinomDiffCI(x1 = `2_Board`, n1 = HB_n1, x2 = `3_Board`, n2 = HB_n2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         HB_ci_sig = case_when(HB_n1>= 10 & HB_n2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                               TRUE ~ ""),
+         ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_n1, x2 = `3_Scotland`, n2 = Scot_n2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         Scot_ci_sig = case_when(Scot_n1 >= 10 & Scot_n2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                 TRUE ~ ""),
+         HB_percent_year2 = percent(`2_Board` / HB_n1, accuracy = 0.1),
+         HB_percent_year3 = paste0(percent(`3_Board` / HB_n2, accuracy = 0.1),HB_ci_sig),
+         Scot_percent_year2 = percent(`2_Scotland` / Scot_n1, accuracy = 0.1),
+         Scot_percent_year3 = paste0(percent(`3_Scotland` / Scot_n2, accuracy = 0.1),Scot_ci_sig)) %>% 
   filter(event == 'total_breach') %>% 
   select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
          `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
 
+#extract current and previous year denominator to use in CI test
+HB_n1 <- dcrs_data_wrangle_breach %>% filter(event == 'total_breach') %>% pull(`2_Board`)
+HB_n2 <- dcrs_data_wrangle_breach %>% filter(event == 'total_breach') %>% pull(`3_Board`)
+
 #get percentages and set layout table 4 breach breakdown
+if (HB_n1 == 0| HB_n2 == 0) { #CI test only works when both denominators are greater than zero, otherwise error occurs 
 dcrs_table_data_breach2 <- dcrs_data_wrangle_breach %>%
   filter(event == 'total_cd_unavailable' | event == 'total_breach_other') %>%
-  mutate(HB_percent_year2 = percent(`2_Board` / sum(`2_Board`), accuracy = 0.1),
+  mutate(Scot_denom1 = sum(`2_Scotland`), Scot_denom2 = sum(`3_Scotland`), 
+         ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_denom1, x2 = `3_Scotland`, n2 = Scot_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         Scot_ci_sig = case_when(Scot_denom1 >= 10 & Scot_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                 TRUE ~ ""),
+         HB_percent_year2 = percent(`2_Board` / sum(`2_Board`), accuracy = 0.1),
          HB_percent_year3 = percent(`3_Board` / sum(`3_Board`), accuracy = 0.1),
          Scot_percent_year2 = percent(`2_Scotland` / sum(`2_Scotland`), accuracy = 0.1),
-         Scot_percent_year3 = percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1)) %>% 
+         Scot_percent_year3 = paste0(percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1),Scot_ci_sig)) %>% 
+  select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
+         `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3) 
+} else { #create dataframe with no CI test if first condition is not met
+  dcrs_table_data_breach2 <- dcrs_data_wrangle_breach %>%
+  filter(event == 'total_cd_unavailable' | event == 'total_breach_other') %>%
+  mutate(HB_denom1 = sum(`2_Board`), HB_denom2 = sum(`3_Board`), 
+         ci_mn = BinomDiffCI(x1 = `2_Board`, n1 = HB_denom1, x2 = `3_Board`, n2 = HB_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         HB_ci_sig = case_when(HB_denom1 >= 10 & HB_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                               TRUE ~ ""),
+         Scot_denom1 = sum(`2_Scotland`), Scot_denom2 = sum(`3_Scotland`), 
+         ci_mn = BinomDiffCI(x1 = `2_Scotland`, n1 = Scot_denom1, x2 = `3_Scotland`, n2 = Scot_denom2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         Scot_ci_sig = case_when(Scot_denom1 >= 10 & Scot_denom2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                                 TRUE ~ ""),
+         HB_percent_year2 = percent(`2_Board` / sum(`2_Board`), accuracy = 0.1),
+         HB_percent_year3 = paste0(percent(`3_Board` / sum(`3_Board`), accuracy = 0.1),HB_ci_sig),
+         Scot_percent_year2 = percent(`2_Scotland` / sum(`2_Scotland`), accuracy = 0.1),
+         Scot_percent_year3 = paste0(percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1),Scot_ci_sig)) %>% 
   select(event, `2_Scotland`, Scot_percent_year2, `2_Board`, HB_percent_year2, 
          `3_Scotland`, Scot_percent_year3, `3_Board`, HB_percent_year3)
+}
 
 #combine both for table 4
-dcrs_table_data_breach3 <- rbind(dcrs_table_data_breach1, dcrs_table_data_breach2)
+dcrs_table_data_breach3 <- rbind(dcrs_table_data_breach1, dcrs_table_data_breach2) %>%
+  mutate(HB_percent_year2 = case_when(is.na(HB_percent_year2) ~ "0.0%", TRUE ~ HB_percent_year2),
+         HB_percent_year3 = case_when(is.na(HB_percent_year3) ~ "0.0%", TRUE ~ HB_percent_year3))
 
 #Find breakdown of "other" for narrative
 breach_other <- dcrs_data_wrangle_breach %>% filter(event == 'total_breach_delay' | event == 'total_breach_dcrsdelay' |
-                                                      event == 'total_breach_otheralt') %>%
+                                                    event == 'total_breach_dual' | event == 'total_breach_otheralt') %>%
   mutate(HB_other_percent = percent(`3_Board` / sum(`3_Board`), accuracy = 0.1),
          Scot_other_percent = percent(`3_Scotland` / sum(`3_Scotland`), accuracy = 0.1))
 
@@ -320,7 +513,7 @@ dcrs_table3 <- flextable(dcrs_table_data_breach3)%>%
   merge_at(i = 2, j = 6:7, part = "header") %>%
   merge_at(i = 2, j = 8:9, part = "header") %>%  
   align(i = 2, part = "header", align = "center") %>%    
-  fontsize(size = 7.5, part = "all") %>%
+  fontsize(size = 8, part = "all") %>%
   vline(j=c(1, 3, 5, 7), border = brdr) %>% #Add borders (shape created earlier)
   border_outer(border = brdr) %>%
   fix_border_issues() %>%
@@ -330,7 +523,12 @@ dcrs_table3 <- flextable(dcrs_table_data_breach3)%>%
   height_all(height = 0.2, part = "all") %>%
   hrule(rule = "exact", part = "all")  
 
-
+#check if significant change is present and creates note for bottom of table
+sig_table4 <- dcrs_table_data_breach3 %>%
+  mutate(sig_flag = case_when(str_sub(Scot_percent_year3,-1) == "*" | str_sub(HB_percent_year3,-1) == "*" ~ 1)) %>% #Flag when significance as been found
+  summarise(sig_flag = sum(sig_flag, na.rm = TRUE)) %>%
+  mutate(sig_caption = case_when(sig_flag >= 1 ~ "*Significant change from previous year", TRUE ~ "")) %>% #Create label to add to table if significant value is found
+  pull(sig_caption)
 
 # table 5 case level ------------------------------------------------------
 
@@ -401,7 +599,7 @@ dcrs_table_5 <- flextable(dcrs_table_data_level3)%>%
   merge_at(i = 4, j = 8:9, part = "body") %>%
   align(i = 2, part = "header", align = "center") %>% 
   align(i = 4, j = 2:9, part = "body", align = "center") %>% 
-  fontsize(size = 7.5, part = "all") %>%
+  fontsize(size = 8, part = "all") %>%
   vline(j=c(1, 3, 5, 7), border = brdr) %>%
   hline(i= 4, border = brdr) %>% #Add borders (shape created earlier)
   border_outer(border = brdr) %>%
@@ -414,10 +612,17 @@ dcrs_table_5 <- flextable(dcrs_table_data_level3)%>%
 
 dcrs_table_5
 
+#check if significant change is present and creates note for bottom of table
+sig_table5 <- dcrs_table_data_level3 %>%
+  mutate(sig_flag = case_when(str_sub(Scot_percent_year3,-1) == "*" | str_sub(HB_percent_year3,-1) == "*" ~ 1)) %>% #Flag when significance as been found
+  summarise(sig_flag = sum(sig_flag, na.rm = TRUE)) %>%
+  mutate(sig_caption = case_when(sig_flag >= 1 ~ "*Significant change from previous year", TRUE ~ "")) %>% #Create label to add to table if significant value is found
+  pull(sig_caption)
+
 # table 6 hospital review -------------------------------------------------
 
 #set hospital review table using data from standard data
-
+       
 #Set up flextable
 dcrs_table_hosp <- flextable(DCRS_Data_Hosp) %>%
   set_header_labels(DCRS_Data_Hosp, Locname = "Hospital", 
@@ -431,7 +636,7 @@ dcrs_table_hosp <- flextable(DCRS_Data_Hosp) %>%
   merge_at(i = 1, j = 8:9, part = "header") %>%
   align(i = 1, part = "header", align = "left") %>%
   bold(i = 1, part = "header", bold = TRUE) %>%
-  fontsize(size = 7.5, part = "all") %>%
+  fontsize(size = 8, part = "all") %>%
   vline(j=c(1, 3, 5, 7), border = brdr) %>%
   hline(i = (nrow(DCRS_Data_Hosp)-1), border = brdr) %>%
   border_outer(border = brdr) %>%
@@ -446,13 +651,27 @@ set_caption(caption = paste0("Table 6: Breakdown of review outcome by hospital f
 
 #dcrs_table_hosp
 
+#check if significant change is present and creates note for bottom of table
+sig_table6 <- DCRS_Data_Hosp %>%
+  mutate(sig_flagup = case_when(str_sub(in_order_percent,-2) == "*^" | str_sub(not_in_order_percent,-2) == "*^" |
+                                str_sub(report_pf_percent,-2) == "*^"  ~ 1),
+         sig_flagdown = case_when(str_sub(in_order_percent,-2) == "*v" | str_sub(not_in_order_percent,-2) == "*v" |
+                                  str_sub(report_pf_percent,-2) == "*v"  ~ 1)) %>% #Flag when significance as been found
+  summarise(sig_flagup = sum(sig_flagup, na.rm = TRUE),
+            sig_flagdown = sum(sig_flagdown, na.rm = TRUE)) %>%
+  mutate(sig_caption = case_when(sig_flagup >= 1 & sig_flagdown >= 1 ~ 
+                                   "*^ significant increase from previous year \n *v significant decrease from previous year", 
+                                 sig_flagup >= 1 ~ "*^ significant increase from previous year",
+                                 sig_flagdown >= 1 ~ "*v significant decrease from previous year",
+                                 TRUE ~ "")) %>% #Create label to add to table if significant value is found
+  pull(sig_caption)
 
 # table 7 hospice review --------------------------------------------------
 
 #set hospice review table using data from standard data
 
 #Set up flextable
-if (nrow(DCRS_Data_Hospice) > 1) {
+if (nrow(DCRS_Data_Hospice) > 1) { #only create table if hospice data is present
   dcrs_table_hospice <- flextable(DCRS_Data_Hospice) %>%
     set_header_labels(DCRS_Data_Hospice, Locname = "Hospice", 
                       case_in_order = "Case in Order", 
@@ -465,7 +684,7 @@ if (nrow(DCRS_Data_Hospice) > 1) {
     merge_at(i = 1, j = 8:9, part = "header") %>%
     align(i = 1, part = "header", align = "left") %>%
     bold(i = 1, part = "header", bold = TRUE) %>%
-    fontsize(size = 7.5, part = "all") %>%
+    fontsize(size = 8, part = "all") %>%
     vline(j=c(1, 3, 5, 7), border = brdr) %>%
     hline(i = (nrow(DCRS_Data_Hospice)-1), border = brdr) %>%
     border_outer(border = brdr) %>%
@@ -476,12 +695,30 @@ if (nrow(DCRS_Data_Hospice) > 1) {
     width(j = 1, width = 1.3, unit = "in")  %>%
     width(j = c(2,4,6,8), width = 0.35, unit = "in") %>%
     width(j = c(3,5,7,9), width = 0.55, unit = "in") %>%
-    height(i = 1:nrow(DCRS_Data_Hospice), height = 0.05, unit = "in", part = "body") }
+    height(i = 1:nrow(DCRS_Data_Hospice), height = 0.05, unit = "in", part = "body")
+  
+#check if significant change is present and creates note for bottom of table  
+sig_table7 <- DCRS_Data_Hospice %>%
+    mutate(sig_flagup = case_when(str_sub(in_order_percent,-2) == "*^" | str_sub(not_in_order_percent,-2) == "*^" |
+                                    str_sub(report_pf_percent,-2) == "*^"  ~ 1),
+           sig_flagdown = case_when(str_sub(in_order_percent,-2) == "*v" | str_sub(not_in_order_percent,-2) == "*v" |
+                                      str_sub(report_pf_percent,-2) == "*v"  ~ 1)) %>% #Flag when significance as been found
+    summarise(sig_flagup = sum(sig_flagup, na.rm = TRUE),
+              sig_flagdown = sum(sig_flagdown, na.rm = TRUE)) %>%
+    mutate(sig_caption = case_when(sig_flagup >= 1 & sig_flagdown >= 1 ~ 
+                                     "*^ significant increase from previous year \n *v significant decrease from previous year", 
+                                   sig_flagup >= 1 ~ "*^ significant increase from previous year",
+                                   sig_flagdown >= 1 ~ "*v significant decrease from previous year",
+                                   TRUE ~ "")) %>% #Create label to add to table if significant value is found
+    pull(sig_caption)
+   
+  } else {sig_table7 = ""} #create blank if no hospice data present
 
 
 
 
-####Blank tables for DCRS
+
+####Blank tables for DCRS (currently not in use)
 
 #Key Information Summary table
 #kis_table_data <- data.frame(Period = c("Total number of reviews", "Completed KIS", "Percentage"),
@@ -490,6 +727,8 @@ if (nrow(DCRS_Data_Hospice) > 1) {
    #                          S2 = c("", "", ""),
     #                         B2 = c("", "", ""))
 
+
+#KIS Table 
 #Wrangle and format KIS data for KIS summary table
 dcrs_data_wrangle_kis <- dcrs_data_kis_all %>%
   pivot_longer(cols = !c(Year, `Health Board`), 
@@ -588,189 +827,3 @@ reduction_table
 
 
 
-###Tables Summary Text###
-
-#Scot summary text values
-
-#Table 1
-#Overall total
-Scot_total <- dcrs_table_data_total %>% filter(event == 'Total') %>% pull(`3_Scotland`)
-Scot_total <- prettyNum(Scot_total, big.mark = ",", scientific = FALSE)
-
-#Table 2
-#In order percent
-io_percent_scot <- dcrs_table_data %>% filter(event == 'total_in_order' ) %>%  pull(Scot_percent_year3)
-
-#Not in order total
-nio_total_scot <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% pull('3_Scotland')
-
-#Not in order percent
-nio_percent_scot <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% pull(Scot_percent_year3)
-
-#Replacement MCCD total
-mccd_total_scot <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% pull('3_Scotland')
-
-#Replacement MCCD percent
-mccd_percent_scot <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% pull(Scot_percent_year3)
-
-#Email amendment total
-email_total_scot <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% pull('3_Scotland')
-
-#Email amendment percent
-email_percent_scot <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% pull(Scot_percent_year3)
-
-#PF report percent
-pf_percent_scot <- dcrs_table_data %>% filter(event == 'total_report_to_pf') %>% pull(Scot_percent_year3)
-
-#Table 3
-#Electronic MCCD percent
-emccd_percent_scot <- dcrs_table_data5 %>% filter(event == 'total_emccd') %>% pull(Scot_percent_year3)
-
-#Paper MCCD percent
-mccd_percent_scot2 <- dcrs_table_data5 %>% filter(event == 'total_mccd') %>% pull(Scot_percent_year3)
-
-#Table 4
-#Breach overal percentage
-total_breach_percent_scot <- dcrs_table_data_breach3 %>% filter(event == 'total_breach') %>% 
-  pull(Scot_percent_year3)
-
-#Certifying doctor percent
-cd_breach_percent_scot <- dcrs_table_data_breach3 %>% filter(event == 'total_cd_unavailable') %>% pull(Scot_percent_year3)
-
-#Other reason percent
-other_breach_percent_scot <- dcrs_table_data_breach3 %>% filter(event == 'total_breach_other') %>% pull(Scot_percent_year3)
-
-#Receiving info reason percent
-delay_percent_scot <- breach_other %>% filter(event == 'total_breach_delay') %>% pull(Scot_other_percent)
-
-#DCRS reason percent
-dcrs_delay_percent_scot <- breach_other %>% filter(event == 'total_breach_dcrsdelay') %>% pull(Scot_other_percent)
-
-#Table 5
-#Escalated level total
-esc_level_scot <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% pull(`3_Scotland`)
-
-#Escalated level percent
-esc_level_percent_scot <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% pull(Scot_percent_year3)
-
-#Main reason total
-top_esc_scot <- dcrs_data %>% filter(Year == 3, `Escalation Reason` != "") %>% group_by(`Escalation Reason`) %>% 
-  summarise(number = sum(`Escalation Reason` != "")) %>% filter(number == max(number)) %>% pull(`Escalation Reason`)
-
-#Main reason percent
-top_esc_percent_scot <- dcrs_data %>% filter(Year == 3, `Escalation Reason` != "") %>% group_by(`Escalation Reason`) %>% 
-  summarise(number = sum(`Escalation Reason` != "")) %>% mutate(ecap_percent = percent(number / sum(number), accuracy = 0.1)) %>% 
-  filter(number == max(number)) %>% pull(ecap_percent)
-
-
-#HB summary text values
-
-#Table 1
-#Overall total
-board_total <- dcrs_table_data_total %>% filter(event == 'Total') %>% pull(`3_Board`)
-board_total <- prettyNum(board_total, big.mark = ",", scientific = FALSE)
-
-#Table 2
-#In order percent
-io_percent <- dcrs_table_data %>% filter(event == 'total_in_order' ) %>%  pull(HB_percent_year3)
-
-#Not in order total
-nio_total <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% pull('3_Board')
-
-#Not in order total
-nio_percent <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% pull(HB_percent_year3)
-
-#Replacement MCCD total
-mccd_total <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% pull('3_Board')
-
-#Replacement MCCD percent
-mccd_percent <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% pull(HB_percent_year3)
-
-#Email amendment total
-email_total <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% pull('3_Board')
-
-#Email amendment percent
-email_percent <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% pull(HB_percent_year3)
-
-#PF report percent
-pf_percent <- dcrs_table_data %>% filter(event == 'total_report_to_pf') %>% pull(HB_percent_year3)
-
-#Table 3
-#Electronic MCCD percent
-emccd_percent <- dcrs_table_data5 %>% filter(event == 'total_emccd') %>% pull(HB_percent_year3)
-
-#Paper MCCD percent
-mccd_percent2 <- dcrs_table_data5 %>% filter(event == 'total_mccd') %>% pull(HB_percent_year3)
-
-#Table 4
-#Breach overall percentage
-total_breach_percent <- dcrs_table_data_breach3 %>% filter(event == 'total_breach') %>% pull(HB_percent_year3)
-
-#Certifying doctor percent
-cd_breach_percent <- dcrs_table_data_breach3 %>% filter(event == 'total_cd_unavailable') %>% pull(HB_percent_year3)
-
-#Other reason percent
-other_breach_percent <- dcrs_table_data_breach3 %>% filter(event == 'total_breach_other') %>% 
-  pull(HB_percent_year3)
-
-#Receiving info reason percent
-delay_percent <- breach_other %>% filter(event == 'total_breach_delay') %>% pull(HB_other_percent)
-
-#DCRS reason percent
-dcrs_delay_percent <- breach_other %>% filter(event == 'total_breach_dcrsdelay') %>% pull(HB_other_percent)
-
-#Table 5
-#Escalated level total
-esc_level <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% pull('3_Board')
-
-#Escalated level percent
-esc_level_percent <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% pull(HB_percent_year3)
-
-#Main reason total
-top_esc <- dcrs_data %>% filter(Year == 3, `Health Board` == Board, `Escalation Reason` != "") %>% group_by(`Escalation Reason`) %>% 
-  summarise(number = sum(`Escalation Reason` != "")) %>% filter(number == max(number)) %>% pull(`Escalation Reason`)
-
-#Main reason percent
-top_esc_percent <- dcrs_data %>% filter(Year == 3, `Health Board` == Board, `Escalation Reason` != "") %>% group_by(`Escalation Reason`) %>% 
-  summarise(number = sum(`Escalation Reason` != "")) %>% mutate(ecap_percent = percent(number / sum(number), accuracy = 0.1)) %>% 
-  filter(number == max(number)) %>% pull(ecap_percent)
-
-#Hospital/hospice summary text values
-
-#Table 6
-#Overall hospital total
-hospital_total <- DCRS_Data_Hosp %>% filter(Locname == "Total") %>% pull(case_total) 
-
-#Main hospital name
-hospital_name <- DCRS_Data_Hosp %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(Locname) 
-
-#Main hospital number
-hospital_number_top <- DCRS_Data_Hosp %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(case_total) 
-
-#Main hospital percent
-hospital_percent_top <- DCRS_Data_Hosp %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(total_all_percent) 
-
-#Main hospital not in order total
-hospital_number_notinorder <- DCRS_Data_Hosp %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(case_not_in_order) 
-
-#Main hospital not in order percent
-hospital_percent_notinorder <- DCRS_Data_Hosp %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(not_in_order_percent)
-
-#Table 7
-#Overall hospice total
-hospice_total <- DCRS_Data_Hospice %>% filter(Locname == "Total") %>% pull(case_total) 
-
-#Main hospice name
-hospice_name <- DCRS_Data_Hospice %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(Locname) 
-
-#Main hospice number
-hospice_number_top <- DCRS_Data_Hospice %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(case_total) 
-
-#Main hospice percent
-hospice_percent_top <- DCRS_Data_Hospice %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(total_all_percent) 
-
-#Main hospice not in order total
-hospice_number_notinorder <- DCRS_Data_Hospice %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(case_not_in_order)
-
-#Main hospice not in order percent
-hospice_percent_notinorder <- DCRS_Data_Hospice %>% filter(Locname != "Total") %>% filter(case_total == max(case_total)) %>% pull(not_in_order_percent)

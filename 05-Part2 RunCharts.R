@@ -9,7 +9,7 @@ Board <- hdr
 dcrs_data_scot_run <- dcrs_data %>%
   filter(`Case Type` == "Standard") %>%
   #Update start date when moving on a year
-  filter(`Created On` < end_date & `Created On` >= "2019-01-01") %>%  
+  filter(`Created On` < end_date & `Created On` >= "2020-01-01") %>%  
   #Set all dates to the 1st of the month to group by month
   mutate(`Created On` = floor_date(`Created On`, "month"),
          `Health Board` = 'Scotland') %>%
@@ -21,9 +21,9 @@ dcrs_data_scot_run <- dcrs_data %>%
   mutate(month_exclude = case_when((`Created On` >= "2020-03-01" & `Created On` <= "2020-08-01") |
                                      (`Created On` >= "2020-11-01" & `Created On` <= "2021-05-01") |
                                      (`Created On` >= "2021-10-01" & `Created On` <= "2022-03-01") |
-                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ 1),
+                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ "skip"),
          case_total = (total_in_order + total_not_in_order),
-         percent_nio = (total_not_in_order / case_total)) 
+         percent_nio = (total_not_in_order / case_total)*100) 
 
 #Add April 2020 point as no data was collected during this month
 apr_data <- head(dcrs_data_scot_run, 1) %>%
@@ -31,60 +31,67 @@ apr_data <- head(dcrs_data_scot_run, 1) %>%
          `Created On` = "2020-04-01", 
          total_in_order = 0, 
          total_not_in_order = 0, 
-         month_exclude = 1, 
+         month_exclude = "skip", 
          case_total = 0, 
          percent_nio = 0)
 
 #Combine April point with the dataset
 dcrs_data_scot_run <- rbind(dcrs_data_scot_run, apr_data) 
 
-
-
 #scotland run chart
 
-library(plyr)
-library(zoo)
+scot_run <- make_runchart(
+  dcrs_data_scot_run,
+  observation = "percent_nio",
+  date = "Created On",
+  specs = "month_exclude",
+  baselinepts = 12,
+  temporarypts = 9,
+  onmedian = 0.01
+) %>%
+  mutate(grp = c(0,cumsum(abs(diff(is.na(month_exclude))))),  #add groupings required for line breaks
+         grp2 = case_when(median_name != lag(median_name) ~ 1, TRUE ~ 0),
+         grp2 = cumsum(grp2) + grp)
 
-#imports runchart function
-source("Functions/stable.R") 
-#debugonce(RunChart)
+scot_run_summary <- scot_run %>%
+  summarise_medians(observation_type = "Percentage") %>% 
+  filter(!is.na(median_label_display)) %>%
+  mutate(`Created On` = date_start) %>%
+  select(`Created On`, median_change_direction, median_change_pct_display, median_display, median_name_display, median_label_display)
 
-#Run chart analysis using the runchart function
-dataset <- dcrs_data_scot_run %>%
-  # filter(percent_nio == "NA")%>%
-  mutate(Month = ymd(`Created On`))%>%
-  group_by(`Health Board`)%>%
-  nest()%>%
-  mutate(RunData = map(data, ~RunChart(measure = .x$percent_nio, subgroup = .x$Month, exclude = .x$month_exclude, shiftsens = "none", percentage =TRUE)))%>%
-  unnest(cols = c(RunData))%>%
-  select(-data) %>%
-  mutate(grp = c(0,cumsum(abs(diff(is.na(exclude))))))
+scot_run <- scot_run %>% left_join(scot_run_summary, by = "Created On") %>%
+  mutate(percent_nio = percent_nio/100,
+         median = median/100)
 
-#Chart all data from the run chart analysis
-scot_run <- ggplot(dataset, aes(x = subgroup)) +
-  geom_line(data = dataset %>% filter(is.na(exclude)), 
-            aes(y=measure, group = grp) , 
+
+scot_run_plot <- ggplot(scot_run, aes(x = `Created On`)) +
+  geom_line(data = scot_run %>% filter(is.na(month_exclude)), 
+            aes(y=percent_nio, group = grp) , 
             colour = "#004380", linewidth = 1)+
-  ggtitle(paste0("Chart 1: Run chart of monthly percentage MCCDs ‘not in order' Scotland"))+ 
-  geom_point(aes(y=measure, group = 1), 
+  ggtitle("Chart 1: Run chart of monthly precentage MCCDs 'not in order' Scotland") + 
+  geom_point(aes(y=percent_nio, group = 1), 
              colour = "#004380", size = 2) +  
-  geom_point(data = dataset %>% filter(exclude == 1), aes(y=measure, group = 1), 
+  geom_point(data = scot_run %>% filter(month_exclude == "skip"), aes(y=percent_nio, group = 1), 
              colour = "#a6a6a6", size = 2) + 
-  geom_line(data = dataset %>% filter(is.na(exclude)), 
-            aes(y=median, group = paste(base_n, grp)), 
+  geom_line(data = scot_run %>% filter(is.na(month_exclude) & str_detect(scot_run$median_name, "Extended Median")), 
+            aes(y=median, group = grp2), 
             linetype = "longdash", colour = "#F27822", linewidth = 1) +
-  geom_line(data = dataset %>% filter(is.na(exclude)), 
-            aes(y=baselines, group = paste(base_n, grp)), 
+  geom_line(data = scot_run %>% filter(is.na(month_exclude) & str_detect(scot_run$median_name, "Baseline Median") | str_detect(scot_run$median_name, "Temporary Median")), 
+            aes(y=median, group = grp2), 
             linetype = "solid", colour = "#F27822", linewidth = 1) +
-  geom_point(aes(y=highlight, group = 1), 
+  geom_point(data = scot_run %>% filter(!is.na(observation_note) & str_detect(observation_note,"Shift")),
+             aes(y=percent_nio, group = 1), 
              colour = "#ffcd04", size = 2) +
-  geom_text(data = dataset %>% filter(is.na(exclude)), aes(y = max(measure), label = base_label), 
-            size= 3, nudge_y= 0.02, hjust = 0) +
-  geom_point(aes(y=as.numeric(trendind), group = 1), shape = 1, size = 3, colour = "#00b0f0") + 
-  scale_y_continuous(limits=c(0, max(as.numeric(dataset$measure))+0.1*max(as.numeric(dataset$measure))), expand = c(0, 0), labels = percent) +
+  #  geom_text(data = dataset %>% filter(is.na(exclude)), aes(y = median, label = base_label), 
+  #           size= 3) +
+  geom_text_repel(data = scot_run %>% filter(is.na(month_exclude)), aes(y = max(percent_nio), label = median_label_display, segment.color = NA), 
+            size= 2.5, nudge_y= -0.15, hjust = 0) +   
+  geom_point(data = scot_run %>% filter(!(is.na(trend))),
+                                        aes(y=percent_nio, group = 1), shape = 1, size = 3, colour = "#00b0f0") +
+  scale_y_continuous(limits=c(0, max(as.numeric(scot_run$percent_nio))+0.1*max(as.numeric(scot_run$percent_nio))), expand = c(0, 0), labels = percent) +
   xlab("Month") + ylab("Percent") +
-  scale_x_date(breaks = seq(min(dataset$subgroup), max(dataset$subgroup), length.out = 20),
-               limits = c(min(dataset$subgroup), max(dataset$subgroup)),
+  scale_x_date(breaks = seq(min(scot_run$`Created On`), max(scot_run$`Created On`), length.out = 20),
+               limits = c(min(scot_run$`Created On`), max(scot_run$`Created On`)),
                date_labels = "%b\n%Y")+
   theme_classic()+
   theme(plot.title = element_text(size = 10),
@@ -92,51 +99,57 @@ scot_run <- ggplot(dataset, aes(x = subgroup)) +
         axis.title.x = element_text(size = 8),
         axis.text.x = element_text(size = 7.5, angle = 45, hjust = 1),
         axis.title.y = element_text(size = 8))
-#debugonce(RunChart)
 
-scot_run
+scot_run_plot
 
-detach("package:plyr", unload=TRUE)
-detach("package:zoo", unload=TRUE)
-
-ggsave(scot_run, 
+ggsave(scot_run_plot, 
        filename = "Charts/scot_run.png",
        device = "png",
        height = 3.2, width = 6, units = "in")
 
 # summary text Scotland run chart -----------------------------------------
 
-
 #set text for scotland run chart
 
 #find beaseline median
-scot_start_base <- dataset %>%
-  filter(`base_n` == 1) %>%
-  filter(base_label != "na") %>%
-  pull(median)
+scot_start_base <- scot_run_summary %>%
+  filter(substr(median_name_display,1, 4) == "Base") %>%
+  pull(median_display)
 
 #find current median
-scot_current_base <- dataset %>%
-  filter(base_n != "na") %>%
-  filter(base_n == max(base_n)) %>%
-  filter(base_label != "na") %>%
-  pull(median)
+scot_current_base <- scot_run_summary %>%
+  filter(substr(median_name_display,1, 4) == "Curr") %>%
+  pull(median_display)
 
 #calculate percent difference between baseline and current median
-scot_percent_change <- percent(1-(scot_current_base/scot_start_base), accuracy = 0.1)
+scot_percent_change <-  scot_run_summary %>%
+  filter(substr(median_name_display,1, 4) == "Curr") %>%
+  pull(median_change_pct_display)
 
+count_scot <- scot_run_summary %>%
+  mutate(c_flag = case_when(substr(median_name_display,1, 4) == "Curr" ~ 1, TRUE ~ 0)) %>%
+  summarise(c_flag = sum(c_flag)) %>% pull(c_flag)
+  
+if(count_scot > 0 ) {
 #find if measure has improved/deteriorated/not changed and set text
-if(scot_start_base > scot_current_base){
+scot_change_direction <-  scot_run_summary %>%
+  filter(substr(median_name_display,1, 4) == "Curr") %>%
+  pull(median_change_direction)
+}else{ 
+  scot_change_direction <- "" }
+
+if(scot_change_direction == "Decrease") {
   scot_change_status = "improved"
-} else if (scot_start_base < scot_current_base){
+} else if (scot_change_direction == "Increase") {
   scot_change_status = "deteriorated"
 } else
 { scot_change_status = "not changed"
 }
 
 #count how many points in current median
-scot_count_median <- dataset %>%
-  filter(base_n != "na") %>%
+scot_count_median <- scot_run %>%
+  filter(median_name != "na") %>%
+  mutate(base_n = as.numeric(substr(median_name, 17, 17))) %>%
   filter(base_n == max(base_n)) %>%
   count(`base_n`) %>%
   pull(n)
@@ -145,7 +158,7 @@ scot_count_median <- dataset %>%
 if(scot_count_median < 12){
   scot_median_text = "temporary"
 } else
-{ scot_median_text = "new"
+{ scot_median_text = "current"
 } 
 
 #Load run chart status from previous iteration going back to 2015
@@ -155,38 +168,36 @@ RunChartStatement_scot <- read_excel("RunChartStatement.xlsx") %>%
   pull(Statement)
 
 #find if measure has improved/deteriorated/not changed and set main text for narrative
-if (scot_start_base > scot_current_base){
-  scot_change_status = paste(RunChartStatement_scot, "More recently, from January 2019, Scotland has improved by", scot_percent_change,
-                              "from", percent(scot_start_base, accuracy = 0.1), "to a", scot_median_text, "median of", percent(scot_current_base, accuracy = 0.1))
-} else if (scot_start_base < scot_current_base){
-  scot_change_status = paste(RunChartStatement_scot, "More recently, from January 2019, Scotland has deteriorated by", scot_percent_change,
-                              "from", percent(scot_start_base, accuracy = 0.1), "to a", scot_median_text, "median of", percent(scot_current_base, accuracy = 0.1))
+if (scot_change_direction == "Decrease"){
+  scot_change_status = paste(RunChartStatement_scot, "More recently, from January 2020, Scotland has improved by", scot_percent_change,
+                              "from", scot_start_base, "to a", scot_median_text, "median of", scot_current_base)
+} else if (scot_change_direction == "Increase"){
+  scot_change_status = paste(RunChartStatement_scot, "More recently, from January 2020, Scotland has deteriorated by", scot_percent_change,
+                              "from", scot_start_base, "to a", scot_median_text, "median of", scot_current_base)
 } else
-{ scot_change_status = paste(RunChartStatement_scot, "More recently there has been no change in the percentage 'not in order'") }
+{ scot_change_status = paste(RunChartStatement_scot, "More recently in analysis from January 2020 there has been no change in the percentage 'not in order'") }
 
-#Extract all data from run chart
-scot_run_data <- scot_run$data
 
 #Flag if there is a sustained shift in the last 12 months
-sustained_flag <- scot_run_data %>%
-  mutate(sustained_flag = case_when(baselines != "na" & base_n == max(base_n) ~ 1,
-                                    TRUE ~ 0)) %>%
-  filter(subgroup >= (max(subgroup) - 365)) %>%
+sustained_flag <- scot_run %>%
+  filter(`Created On` >= (max(`Created On`) - 365)) %>%
+  mutate(sustained_flag = case_when(substr(median_name,1, 4) == "Base" ~ 1, TRUE ~ 0)) %>%
   summarise(sustained_flag = sum(sustained_flag)) %>%
   pull(sustained_flag)
 
 #Flag if there is an ongoing shift
-shift_flag <- scot_run_data %>%
-  mutate(shift_flag = case_when(median < highlight ~ 1,
-                                median > highlight ~ -1,
+shift_flag <- scot_run %>%
+  filter(`Created On` >= (max(`Created On`) - 365)) %>%
+  mutate(shift_flag = case_when(median < percent_nio & observation_note == "Shift" ~ 1,
+                                median > percent_nio & observation_note == "Shift" ~ -1,
                                 TRUE ~ 0)) %>%
-  filter(subgroup == max(subgroup)) %>%
+  filter(`Created On` == max(`Created On`)) %>%
   pull(shift_flag)
 
 #Add narrative if a recent sustained change or shift identified 
-if(scot_start_base > scot_current_base & sustained_flag > 1){
+if(scot_change_direction == "Decrease" & sustained_flag > 1){
   scot_new_change_status = "Scotland has seen recent improvement with a new median below the baseline."
-} else if (scot_start_base < scot_current_base & sustained_flag > 1){
+} else if (scot_change_direction == "Increase" & sustained_flag > 1){
   scot_new_change_status = "Scotland has seen recent deterioration with a new median above the baseline."
 } else if (shift_flag == -1){
   scot_new_change_status = "Scotland has also seen signs of improvement with an ongoing shift above the current median."
@@ -197,13 +208,12 @@ if(scot_start_base > scot_current_base & sustained_flag > 1){
 
 # chart 2 board run chart -------------------------------------------------
 
-
 #set board run chart data
 #Aggregate to Board level
 dcrs_data_run <- dcrs_data %>%
   filter(`Case Type` == "Standard") %>%
   #Update start date when moving on a year
-  filter(`Created On` < end_date & `Created On` >= "2019-01-01") %>%  
+  filter(`Created On` < end_date & `Created On` >= "2020-01-01") %>%  
   filter(`Health Board` == Board) %>%
   #Set all dates to the 1st of the month to group by month
   mutate(`Created On` = floor_date(`Created On`, "month")) %>%
@@ -215,9 +225,10 @@ dcrs_data_run <- dcrs_data %>%
   mutate(month_exclude = case_when((`Created On` >= "2020-03-01" & `Created On` <= "2020-08-01") |
                                      (`Created On` >= "2020-11-01" & `Created On` <= "2021-05-01") |
                                      (`Created On` >= "2021-10-01" & `Created On` <= "2022-03-01") |
-                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ 1),
+                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ "skip"),
          case_total = (total_in_order + total_not_in_order),
-         percent_nio = (total_not_in_order / case_total))
+         percent_nio = (total_not_in_order / case_total*100),
+         percent_nio = case_when(percent_nio >= 0 ~ percent_nio, TRUE ~ 0))
 
 #Add April 2020 point as no data was collected during this month
 apr_data <- head(dcrs_data_run, 1) %>%
@@ -225,7 +236,7 @@ apr_data <- head(dcrs_data_run, 1) %>%
          `Created On` = "2020-04-01", 
          total_in_order = 0, 
          total_not_in_order = 0, 
-         month_exclude = 1, 
+         month_exclude = "skip", 
          case_total = 0, 
          percent_nio = 0)
 
@@ -238,7 +249,7 @@ dcrs_data_run <- rbind(dcrs_data_run, apr_data)
 dcrs_data_run_quarter <- dcrs_data %>%
   filter(`Case Type` == "Standard") %>%
   #Update start date when moving on a year
-  filter(`Created On` < end_date & `Created On` >= "2019-01-01") %>%  
+  filter(`Created On` < end_date & `Created On` >= "2020-01-01") %>%  
   filter(`Health Board` == Board) %>%
   #Set all dates to the 1st of the quarter to group by quarter
   mutate(`Created On` = floor_date(`Created On`, "quarter")) %>%
@@ -248,91 +259,103 @@ dcrs_data_run_quarter <- dcrs_data %>%
             , .groups = "rowwise") %>%
   #Dates to exclude due to reduction of DCRS service during pandemic
   mutate(month_exclude = case_when((`Created On` >= "2020-03-01" & `Created On` <= "2022-03-01") |
-                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ 1),
+                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ "skip"),
          case_total = (total_in_order + total_not_in_order),
-         percent_nio = (total_not_in_order / case_total))
+         percent_nio = (total_not_in_order / case_total*100))
 
-#Add April 2020 point as no data was collected during this month
-apr_data <- head(dcrs_data_run_quarter, 1) %>%
-  mutate(`Health Board` = Board,
-         `Created On` = "2020-04-01", 
-         total_in_order = 0, 
-         total_not_in_order = 0, 
-         month_exclude = 1, 
-         case_total = 0, 
-         percent_nio = 0)
-
-#Combine April point with the dataset
-dcrs_data_run_quarter <- rbind(dcrs_data_run_quarter, apr_data) 
 
 #board run chart
 
-library(plyr)
-library(zoo)
-
-#install.packages("ggrepel")
-library(ggrepel)
-
 #If quarterly analysis then source and run the quarterly run chart function, else source and run the monthly run chart function
 if(Board == "Borders" | Board == "Dumfries and Galloway"){
-  source("Functions/stable2.R") #imports quarterly runchart function
 
   #Run chart analysis using the quarterly runchart function  
-  dataset <- dcrs_data_run_quarter %>%
-    # filter(percent_nio == "NA")%>%
-    mutate(Month = ymd(`Created On`))%>%
-    group_by(`Health Board`)%>%
-    nest()%>%
-    mutate(RunData = map(data, ~RunChart(measure = .x$percent_nio, subgroup = .x$Month, exclude = .x$month_exclude, shiftsens = "none", percentage =TRUE)))%>%
-    unnest(cols = c(RunData))%>%
-    select(-data) %>%
-    mutate(grp = c(0,cumsum(abs(diff(is.na(exclude))))))
-} else
-{source("Functions/stable.R") #imports runchart function
+  hb_run <- make_runchart(
+    dcrs_data_run_quarter,
+    observation = "percent_nio",
+    date = "Created On",
+    specs = "month_exclude",
+    baselinepts = 12,
+    temporarypts = 9,
+    onmedian = 0.01
+  ) %>%
+    mutate(grp = c(0,cumsum(abs(diff(is.na(month_exclude))))),  #add groupings required for line breaks
+           grp2 = case_when(median_name != lag(median_name) ~ 1, TRUE ~ 0),
+           grp2 = cumsum(grp2) + grp)
   
-  #Run chart analysis using the monthly runchart function
-  dataset <- dcrs_data_run %>%
-    # filter(percent_nio == "NA")%>%
-    mutate(Month = ymd(`Created On`))%>%
-    group_by(`Health Board`)%>%
-    nest()%>%
-    mutate(RunData = map(data, ~RunChart(measure = .x$percent_nio, subgroup = .x$Month, exclude = .x$month_exclude, shiftsens = "none", percentage =TRUE)))%>%
-    unnest(cols = c(RunData))%>%
-    select(-data) %>%
-    mutate(grp = c(0,cumsum(abs(diff(is.na(exclude))))))}
+  hb_run_summary <- hb_run %>%
+    summarise_medians(observation_type = "Percentage") %>% 
+    filter(!is.na(median_label_display)) %>%
+    mutate(`Created On` = date_start) %>%
+    select(`Created On`, median_change_direction, median_change_pct_display, median_display, median_name_display, median_label_display)
+  
+  hb_run <- hb_run %>% left_join(hb_run_summary, by = "Created On") %>%
+    mutate(percent_nio = percent_nio/100,
+           median = median/100)
+} else {
+  
+  hb_run <- make_runchart(
+    dcrs_data_run,
+    observation = "percent_nio",
+    date = "Created On",
+    specs = "month_exclude",
+    baselinepts = 12,
+    temporarypts = 9,
+    onmedian = 0.01
+  ) %>%
+    mutate(grp = c(0,cumsum(abs(diff(is.na(month_exclude))))),  #add groupings required for line breaks
+           grp2 = case_when(median_name != lag(median_name) ~ 1, TRUE ~ 0),
+           grp2 = cumsum(grp2) + grp)
+  
+  hb_run_summary <- hb_run %>%
+    summarise_medians(observation_type = "Percentage") %>% 
+    filter(!is.na(median_label_display)) %>%
+    mutate(`Created On` = date_start) %>%
+    select(`Created On`, median_change_direction, median_change_pct_display, median_display, median_name_display, median_label_display)
+  
+  hb_run <- hb_run %>% left_join(hb_run_summary, by = "Created On") %>%
+    mutate(percent_nio = percent_nio/100,
+           median = median/100)
+  }
 
 #dynamic chart title for mothly/quarterly analysis
 chart_title <-   if(Board == "Borders" | Board == "Dumfries and Galloway") {
     ggtitle(paste0("Chart 2: Run chart of quarterly percentage MCCDs ‘not in order' NHS ", Board))} else {
     ggtitle(paste0("Chart 2: Run chart of monthly percentage MCCDs ‘not in order' NHS ", Board))}
 
+x_axis <- if(Board == "Borders" | Board == "Dumfries and Galloway"){
+  xlab("Quarter") } else {xlab("Month")}
+
+
 #Chart all data from the run chart analysis
-board_run <- ggplot(dataset, aes(x = subgroup)) +
-  geom_line(data = dataset %>% filter(is.na(exclude)), 
-            aes(y=measure, group = grp) , 
+board_run <- ggplot(hb_run, aes(x = `Created On`)) +
+  geom_line(data = hb_run %>% filter(is.na(month_exclude)), 
+            aes(y=percent_nio, group = grp) , 
             colour = "#004380", linewidth = 1)+
   chart_title + 
-  geom_point(aes(y=measure, group = 1), 
+  geom_point(aes(y=percent_nio, group = 1), 
              colour = "#004380", size = 2) +  
-  geom_point(data = dataset %>% filter(exclude == 1), aes(y=measure, group = 1), 
+  geom_point(data = hb_run %>% filter(month_exclude == "skip"), aes(y=percent_nio, group = 1), 
              colour = "#a6a6a6", size = 2) + 
-  geom_line(data = dataset %>% filter(is.na(exclude)), 
-            aes(y=median, group = paste(base_n, grp)), 
+  geom_line(data = hb_run %>% filter(is.na(month_exclude) & str_detect(hb_run$median_name, "Extended Median")), 
+            aes(y=median, group = grp2), 
             linetype = "longdash", colour = "#F27822", linewidth = 1) +
-  geom_line(data = dataset %>% filter(is.na(exclude)), 
-            aes(y=baselines, group = paste(base_n, grp)), 
+  geom_line(data = hb_run %>% filter(is.na(month_exclude) & str_detect(hb_run$median_name, "Baseline Median") | str_detect(hb_run$median_name, "Temporary Median")), 
+            aes(y=median, group = grp2), 
             linetype = "solid", colour = "#F27822", linewidth = 1) +
-  geom_point(aes(y=highlight, group = 1), 
+  geom_point(data = hb_run %>% filter(!is.na(observation_note) & str_detect(observation_note,"Shift")),
+             aes(y=percent_nio, group = 1), 
              colour = "#ffcd04", size = 2) +
   #  geom_text(data = dataset %>% filter(is.na(exclude)), aes(y = median, label = base_label), 
   #           size= 3) +
-  geom_text(data = dataset %>% filter(is.na(exclude)), aes(y = max(measure), label = base_label), 
-                  size= 3, nudge_y= 0.02, hjust = 0) +   
-  geom_point(aes(y=as.numeric(trendind), group = 1), shape = 1, size = 3, colour = "#00b0f0") +
-  scale_y_continuous(limits=c(0, max(as.numeric(dataset$measure))+0.1*max(as.numeric(dataset$measure))), expand = c(0, 0), labels = percent) +
-  xlab("Month") + ylab("Percent") +
-  scale_x_date(breaks = seq(min(dataset$subgroup), max(dataset$subgroup), length.out = 20),
-               limits = c(min(dataset$subgroup), max(dataset$subgroup)),
+  geom_text_repel(data = hb_run %>% filter(is.na(month_exclude)), aes(y = max(percent_nio), label = median_label_display, segment.color = NA), 
+            size= 2.5, nudge_y= 0.02, hjust = 0) +   
+  geom_point(data = hb_run %>% filter(!(is.na(trend))),
+             aes(y=percent_nio, group = 1), shape = 1, size = 3, colour = "#00b0f0") +
+  scale_y_continuous(limits=c(0, max(as.numeric(hb_run$percent_nio))+0.1*max(as.numeric(hb_run$percent_nio))), expand = c(0, 0), labels = percent) +
+  x_axis + ylab("Percent") +
+  scale_x_date(breaks = seq(min(hb_run$`Created On`), max(hb_run$`Created On`), length.out = 20),
+               limits = c(min(hb_run$`Created On`), max(hb_run$`Created On`)),
                date_labels = "%b\n%Y")+
   theme_classic()+
   theme(plot.title = element_text(size = 10),
@@ -342,9 +365,6 @@ board_run <- ggplot(dataset, aes(x = subgroup)) +
         axis.title.y = element_text(size = 8))
 
 board_run
-
-detach("package:plyr", unload=TRUE)
-detach("package:zoo", unload=TRUE)
 
 ggsave(board_run, 
        filename = "Charts/board_run.png",
@@ -361,76 +381,95 @@ RunChartStatement <- read_excel("RunChartStatement.xlsx") %>%
   pull(Statement)
 
 #find beaseline median
-board_start_base <- dataset %>%
-  filter(`base_n` == 1) %>%
-  filter(base_label != "na") %>%
+hb_start_base <- hb_run_summary %>%
+  filter(substr(median_name_display,1, 4) == "Base") %>%
+  pull(median_display)
+
+#find current median
+hb_current_base <- hb_run_summary %>%
+  filter(substr(median_name_display,1, 4) == "Curr") %>%
+  pull(median_display)
+
+#find beaseline median
+hb_start_base2 <- hb_run %>%
+  filter(`Created On` != "2020-04-01",
+    `grp2` == 0,
+    !is.na(median_note != "na")) %>%
   pull(median)
 
 #find current median
-board_current_base <- dataset %>%
-  filter(base_n != "na") %>%
-  filter(base_n == max(base_n)) %>%
-  filter(base_label != "na") %>%
+hb_current_base2 <- hb_run %>%
+  filter(`Created On` != "2020-04-01") %>%
+  filter(`grp2` == max(`grp2`),
+  `Created On` == max(`Created On`)) %>%
   pull(median)
 
-#calculate percent difference between baseline and current median
-board_percent_change <- percent(1-(board_current_base/board_start_base), accuracy = 0.1)
+hb_percent_change <-  hb_run_summary %>%
+  filter(substr(median_name_display,1, 4) == "Curr") %>%
+  pull(median_change_pct_display)
 
+hb_median <- hb_run %>%
+  mutate(median_value = case_when(!is.na(median_name) ~ 1, TRUE ~ 0)) %>%
+  summarise(median_value = sum(median_value))
+
+if(hb_median > 0) {
 #count how many points in current median
-board_count_median <- dataset %>%
-  filter(base_n != "na") %>%
+hb_count_median <- hb_run %>%
+  filter(median_name != "na") %>%
+  mutate(base_n = as.numeric(substr(median_name, 17, 17)),
+         base_n = case_when(is.na(base_n) ~ 0, TRUE ~ base_n)) %>%
   filter(base_n == max(base_n)) %>%
   count(`base_n`) %>%
   pull(n)
+} else {hb_count_median <- 0}
 
 #find if full/temporary median and set text
-if(board_count_median < 12){
-  board_median_text = "temporary"
+if(hb_count_median < 12){
+  hb_median_text = "temporary"
 } else
-{ board_median_text = "current"
+{ hb_median_text = "current"
 } 
+
 
 #find if measure has improved/deteriorated/not changed and set main text for narrative
 if(Board == "Western Isles" | Board == "Shetland" | Board == "Orkney" | Board == "National Golden Jubilee"){
-  board_change_status = "The board reports very small numbers of certificates 'not in order' so a board level run chart cannot be produced."
-} else if (board_start_base > board_current_base){
-  board_change_status = paste(RunChartStatement, "More recently, from January 2019, the board has improved by", board_percent_change,
-                              "from", percent(board_start_base, accuracy = 0.1), "to a", board_median_text, "median of", percent(board_current_base, accuracy = 0.1))
-} else if (board_start_base < board_current_base){
-  board_change_status = paste(RunChartStatement, "More recently, from January 2019, the board has deteriorated by", board_percent_change,
-                              "from", percent(board_start_base, accuracy = 0.1), "to a", board_median_text, "median of", percent(board_current_base, accuracy = 0.1))
+  hb_change_status = "The board reports very small numbers of certificates 'not in order' so a board level run chart cannot be produced"
+} else if (hb_start_base2 > hb_current_base2){
+  hb_change_status = paste(RunChartStatement, "More recently in analysis from January 2020 the board has improved by", hb_percent_change,
+                              "from", hb_start_base, "to a", hb_median_text, "median of", hb_current_base)
+} else if (hb_start_base2 < hb_current_base2){
+  hb_change_status = paste(RunChartStatement, "More recently in analysis from January 2020 the board has deteriorated by", hb_percent_change,
+                              "from", hb_start_base, "to a", hb_median_text, "median of", hb_current_base)
 } else
-{ board_change_status = paste(RunChartStatement, "More recently there has been no change in the percentage 'not in order'") }
-
-#Extract all data from run chart
-board_run_data <- board_run$data
+{ hb_change_status = paste(RunChartStatement, "More recently in analysis from January 2020 there has been no change in the percentage 'not in order'") }
 
 #Flag if there is a sustained shift in the last 12 months
-sustained_flag <- board_run_data %>%
-  mutate(sustained_flag = case_when(baselines != "na" & base_n == max(base_n) ~ 1,
-                                    TRUE ~ 0)) %>%
-  filter(subgroup >= (max(subgroup) - 365)) %>%
+sustained_flag <- hb_run %>%
+  filter(`Created On` >= (max(`Created On`) - 365)) %>%
+  mutate(sustained_flag = case_when(substr(median_name,1, 4) == "Base" ~ 1, TRUE ~ 0)) %>%
   summarise(sustained_flag = sum(sustained_flag)) %>%
   pull(sustained_flag)
 
 #Flag if there is an ongoing shift
-shift_flag <- board_run_data %>%
-  mutate(shift_flag = case_when(median < highlight ~ 1,
-                                median > highlight ~ -1,
+shift_flag <- hb_run %>%
+  filter(`Created On` >= (max(`Created On`) - 365)) %>%
+  mutate(shift_flag = case_when(median < percent_nio & observation_note == "Shift" ~ 1,
+                                median > percent_nio & observation_note == "Shift" ~ -1,
                                 TRUE ~ 0)) %>%
-  filter(subgroup == max(subgroup)) %>%
+  filter(`Created On` == max(`Created On`)) %>%
   pull(shift_flag)
 
 #Add narrative if a recent sustained change or shift identified 
 if(Board == "Western Isles" | Board == "Shetland" | Board == "Orkney" | Board == "National Golden Jubilee"){
-  board_new_change_status = ""
-} else if (board_start_base > board_current_base & sustained_flag > 1){
-  board_new_change_status = "The board has seen recent improvement with a new median below the baseline."
-} else if (board_start_base < board_current_base & sustained_flag > 1){
-  board_new_change_status = "The board has seen recent deterioration with a new median above the baseline."
+  hb_new_change_status = ""
+} else if (hb_start_base2 > hb_current_base2 & sustained_flag > 1){
+  hb_new_change_status = "The board has seen recent improvement with a new median below the baseline."
+} else if (hb_start_base2 < hb_current_base2 & sustained_flag > 1){
+  hb_new_change_status = "The board has seen recent deterioration with a new median above the baseline."
 } else if (shift_flag == -1){
-  board_new_change_status = "The board has also seen signs of improvement with an ongoing shift above the current median."
+  hb_new_change_status = "The board has also seen signs of improvement with an ongoing shift above the current median."
 } else if (shift_flag == 1){
-  board_new_change_status = "The board has also seen signs of deterioration with an ongoing shift above the current median."
+  hb_new_change_status = "The board has also seen signs of deterioration with an ongoing shift above the current median."
 } else
-{ board_new_change_status = "" }
+{ hb_new_change_status = "" }
+

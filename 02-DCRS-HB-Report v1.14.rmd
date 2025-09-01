@@ -25,6 +25,9 @@ library(dplyr)
 library(janitor)
 library(officedown)
 library(tiff)
+library(DescTools)
+library(hisrunchart)
+library(ggrepel)
 
 ```
 
@@ -51,14 +54,14 @@ cover2 <-
 
 #Set Standard Values
 Board <- hdr
-year1 <- "01 Apr 2021 - 31 Mar 2022"
-year2 <- "01 Apr 2022 - 31 Mar 2023"
-year3 <- "01 Apr 2023 - 31 Mar 2024"
-y1 <- "7"
-y2 <- "8"
-y3 <- "9"
-sixmonth <- "01 Oct 2023 - 31 Mar 2024"
-end_date <- as.Date("2024-04-01")
+year1 <- "01 Apr 2022 - 31 Mar 2023"
+year2 <- "01 Apr 2023 - 31 Mar 2024"
+year3 <- "01 Apr 2024 - 31 Mar 2025"
+y1 <- "8"
+y2 <- "9"
+y3 <- "10"
+sixmonth <- "01 Oct 2024 - 31 Mar 2025"
+end_date <- as.Date("2025-04-01")
 
 ```
 
@@ -69,14 +72,12 @@ load("Data/DCRS_DATA_Loc_DIAG.Rda")
 ```{r load source data and analysis, fig.show='hide'}
 
 source("03-HB Standard Data.R")
-
 source("04-Part1 Tables.R")
-
 source("05-Part2 RunCharts.R")
-
 source("06-Part3 FunnelPlots2.R")
-
 source("07-Part4 Charts.R")
+source("10-Table Text Extract.R")
+source("10-Bar Chart Text Extract.R")
 
 ```
 
@@ -144,9 +145,31 @@ source("07-Part4 Charts.R")
 
 <br>
 
-© Healthcare Improvement Scotland 2024
+<br>
 
-Published August 2024
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+© Healthcare Improvement Scotland 2025
+
+Published September 2025
 
 This document is licensed under the Creative Commons Attribution-Noncommercial-NoDerivatives 4.0 International Licence. This allows for the copy and redistribution of this document as long as Healthcare Improvement Scotland is fully acknowledged and given credit. The material must not be remixed, transformed or built upon in any way. To view a copy of this licence, visit https://creativecommons.org/licenses/by-nc-nd/4.0/ \
 
@@ -177,7 +200,21 @@ This report provides a summary of information about death certification reviews 
 - Service Level Agreement for completion of reviews is 24 hours for Level 1 and 3 working days for Level 2
 - Occasionally Level 1 reviews may be escalated to Level 2, and this may result in the re-issue of an MCCD.  A reissue is needed if a change is required and certifying doctor is not available, there is an error in hazards, or there is a significant error in the case
 - MCCDs can be closed with more than one closure category as a reason why the case is 'not in order'
-- Historically the run charts have included data going back to May 2015. Including so much data in the charts has meant they had started to become cluttered and potential recent changes were difficult to interpret.  From the 2023/2024 report, the run chart analysis will only review the latest five years starting from January 2019.  This will be a rolling five years so for example in the next report for 2024/2025, run chart analysis will start from January 2020. Text highlighting the original initial baseline median from May 2015, and any historical improvements from this, will still be included in the review to give context of overall changes at Scotland and board level
+- Run chart analysis will only review a maximum of the latest six years starting from January 2020. This will be a rolling six years so for example in reports for the 2026/2027 periods, run chart analysis will start from January 2021. 
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
 
 <br>
 
@@ -199,7 +236,7 @@ This report provides a summary of information about death certification reviews 
 
 # **Interpreting the data**
 
-This report uses run charts and funnel plots to help us determine if the variation we see is normal (random variation) or is out of the ordinary, and to be explored further (non-random variation). 
+This report uses run charts, funnel plots and confidence intervals to help us determine if the variation we see is normal (random variation) or is out of the ordinary, and to be explored further (non-random variation). 
 
 <br>
 
@@ -223,6 +260,17 @@ A funnel chart is a scatter plot with funnel shaped boundary lines.  These lines
 
 The inner limits are called warning limits, and the upper limits are called control limits. Data points which fall between the upper warning limits and upper control limit are considered high or low compared to the average, but are not significantly statistically different from the average.  Data points which fall out with the control limit are considered statistically different from the average and are non-random variation.
 
+<br>
+
+**Confidence intervals**\
+Confidence intervals are used in bar charts and tables to test the significance of the difference between proportions from the latest years data points, and the previous years.  Significant differences identified are signaled with a "*" next to the proportion in the bar chart or table.  A methodology known as Miettinen & Nurminen has been used which:
+
+  - assumes that data is binomial (that it comes from two independent distributions, it covers a fixed number of trials, it has only two possible outcomes (success or failure), and that it is a constant probability of success)
+  
+  - will not cover cases where the denominator is very small (<30)
+  
+  - is also not suitable to use when reviewing whole numbers or rates
+
 \newpage
 # **Key Messages**
 
@@ -231,6 +279,8 @@ The inner limits are called warning limits, and the upper limits are called cont
 **Significant Outcomes**
 
 - `r key_message`
+`r sig_change_message`
+`r hosp_change_message`
 
 <br>
 
@@ -271,7 +321,9 @@ block_section(
 - `r io_percent_scot` of these were found to be in order. *Table 2*
 - Of the `r nio_total_scot` (`r nio_percent_scot`) 'not in order' cases, `r email_total_scot` (`r email_percent_scot`)  required email amendments and `r mccd_total_scot` (`r mccd_percent_scot`) required replacement MCCDs. *Table 2*
 - `r pf_percent_scot` of cases were reported to the Procurator Fiscal
+  `r scot_table2_sig`
 - `r emccd_percent_scot` of MCCDs were received electronically and `r mccd_percent_scot2` on paper. *Table 3*
+  `r scot_table3_sig`
 
 <br>
 
@@ -283,26 +335,36 @@ block_section(
 - `r io_percent` of these were found to be in order. *Table 2*
 - Of the `r nio_total` (`r nio_percent`) 'not in order' cases, `r email_total` (`r email_percent`)  required email amendments and `r mccd_total` (`r mccd_percent`) required replacement MCCDs. *Table 2*
 - `r pf_percent` of cases were reported to the Procurator Fiscal
+  `r hb_table2_sig`
 - `r emccd_percent` of MCCDs were received electronically and `r mccd_percent2` on paper. *Table 3*
+  `r hb_table3_sig`
 
 `r officer::run_columnbreak()`
 ```{r table 1, ft.align="left"}
 dcrs_table_total
 ```
+`r sig_table1`
+
 <br>
 ```{r table 2, ft.align="left"}
 dcrs_table
 ```
+`r sig_table2`
+
 <br>
 ```{r table 3, ft.align="left"}
 dcrs_table2
 ```
+`r sig_table3`
 
 \newpage
 **Scotland**
 
-- `r total_breach_percent_scot` of reviewed cases breached SLA timescales, `r cd_breach_percent_scot` of which were due to the Certifying Doctor being unavailable and `r other_breach_percent_scot` due to other reasons. *Table 4*. 'Other' mainly consists of DCRS delays (`r dcrs_delay_percent_scot`) and delays in receiving information (`r delay_percent_scot`).
-- The number of cases escalated from level 1 to level 2 was `r esc_level_scot` (`r esc_level_percent_scot`). *Table 5*.  The main reason for escalation was '`r top_esc_scot`' at `r top_esc_percent_scot` of all escalated cases.
+- `r total_breach_percent_scot` of reviewed cases breached SLA timescales, `r cd_breach_percent_scot` of which were due to the Certifying Doctor being unavailable and `r other_breach_percent_scot` due to other reasons. *Table 4*. 
+  + 'Other' mainly consists of DCRS delays (`r dcrs_delay_percent_scot`), or delays in receiving information (`r delay_percent_scot`).
+  `r scot_table4_sig`
+- The number of cases escalated from level 1 to level 2 was `r esc_level_scot` (`r esc_level_percent_scot`). *Table 5*.  
+  + The main reason for escalation was '`r top_esc_scot`' at `r top_esc_percent_scot` of all escalated cases.
 
 <br>
 
@@ -310,17 +372,23 @@ dcrs_table2
 
 **`r Board`**
 
-- `r total_breach_percent` of reviewed cases breached SLA timescales, `r cd_breach_percent` of which were due to the Certifying Doctor being unavailable and `r other_breach_percent` due to other reasons. *Table 4*. 'Other' mainly consists of DCRS delays (`r dcrs_delay_percent`) and delays in receiving information (`r delay_percent`).
-- The number of cases escalated from level 1 to level 2 was `r esc_level` (`r esc_level_percent`). *Table 5*. The main reason for escalation was '`r top_esc`' at `r top_esc_percent` of all escalated cases.
+- `r total_breach_percent` of reviewed cases breached SLA timescales, `r cd_breach_percent` of which were due to the Certifying Doctor being unavailable and `r other_breach_percent` due to other reasons. *Table 4*. 
+ +  'Other' mainly consists of DCRS delays (`r dcrs_delay_percent`), or delays in receiving information (`r delay_percent`).
+  `r hb_table4_sig`
+- The number of cases escalated from level 1 to level 2 was `r esc_level` (`r esc_level_percent`). *Table 5*. 
+ +  The main reason for escalation was '`r top_esc`' at `r top_esc_percent` of all escalated cases.
 
 `r officer::run_columnbreak()`
 ```{r table 4, ft.align="left"}
 dcrs_table3
 ```
+`r sig_table4`
+
 <br>
 ```{r table 5, ft.align="left"}
 dcrs_table_5
 ```
+`r sig_table5`
 
 \newpage
 ```{r}
@@ -361,7 +429,7 @@ block_section(
 
 **`r Board`**
 
-- `r board_change_status`. `r board_new_change_status` *Chart 2*
+- `r hb_change_status`. `r hb_new_change_status` *Chart 2*
 
 `r officer::run_columnbreak()`
 
@@ -449,7 +517,9 @@ block_section(
 # **Service Data Breakdown**
 
 - `r closure_nio` of all MCCDs 'not in order' had at least one clinical closure category recorded, with the most common categor`r closure_value1` being `r max_closure_name`, `r closure_value2` at `r max_closure_value`. `r care_breakdown_text` *Chart 5*
-
+  `r hb_closure_sig`
+  `r scot_closure_sig`
+  
 <br>
 
 <br>
@@ -461,12 +531,14 @@ block_section(
 <br>
 
 - Of the cases recorded as 'cause of death too vague', `r max_vague_value` were due to `r max_vague_name`, and `r max_vague_value2` were due to `r max_vague_name2`. *Chart 6*
+  `r hb_cause_sig`
+  `r scot_cause_sig`
 
 `r officer::run_columnbreak()`
 ```{r, fig.width=6,fig.height=3.1} 
 
 #For larger boards a primary/secondary care breakdown is possible. Otherwise a standard overview is used.
-if (nrow(dcrs_data_wrangle_closure2 != 0)) {
+if (nrow(dcrs_data_wrangle_closure != 0)) {
 if(Board != "Borders" & Board != "Dumfries and Galloway" & Board != "Shetland" & Board != "Orkney" 
                           & Board != "Western Isles" & Board != "National Golden Jubilee"){
 dcrs_closure_ps_plot +
@@ -506,7 +578,8 @@ block_section(
 )
 ```
 - `r closure_admin_nio` of all MCCDs 'not in order'  had at least one administrative closure category recorded, with the most common categor`r admin_value1` being `r max_admin_name`, `r admin_value2` at `r max_admin_value`. *Chart 7*
-
+  `r hb_admin_sig`
+  `r scot_admin_sig`
 
 <br>
 
@@ -531,6 +604,8 @@ block_section(
 <br>
 
 - Due to the certifying doctor not following COPFS/CMO guidance the service recommended `r total_PF` deaths were subsequently reported to the PF. `r max_PF_value` were due to `r max_PF_name`, and `r max_PF_value2` due to `r max_PF_name2`. *Chart 8*   
+  `r hb_pf_sig`
+  `r scot_pf_sig`
 
 `r officer::run_columnbreak()`
 ```{r, fig.width=6,fig.height=3.1} 
@@ -567,6 +642,8 @@ block_section(
 )
 ```
 - During the period there have been `r total_enquiry` calls from NHS `r Board` made to the enquiry line.  There were `r max_enquiry_number` calls (`r max_enquiry_value`) seeking `r max_enquiry_name` which was the majority to the enquiry line, and `r max_enquiry_number2` (`r max_enquiry_value2`) seeking `r max_enquiry_name2`. *Chart 9*
+  `r hb_enquiry_sig`
+  `r scot_enquiry_sig`
 
 <br>
 
@@ -604,7 +681,7 @@ block_section(
 ```
 \newpage
 # **Key Information Summary**
-```{r blank table for DCRS, ft.align="left"}
+```{r, ft.align="left"}
 kis_table
 ```
 
@@ -619,6 +696,7 @@ There have been no Information Governance breaches recorded during the reporting
 
 - Of the `r hospital_total` hospital cases reviewed for the year, `r hospital_number_top` (`r hospital_percent_top`) occurred at `r hospital_name`, of which `r hospital_number_notinorder` (`r hospital_percent_notinorder`) were found to be 'not in order'. *Table 6*
 - `r hospital_name` has seen the largest number of hospital cases over the last 3 years. *Chart 10*
+`r hosp_sig`
 
 <br>
 
@@ -632,10 +710,12 @@ block_section(
 ```{r table 6, ft.align="left"}
 dcrs_table_hosp
 ```
+`r sig_table6`
+
 `r officer::run_columnbreak()`
 ```{r, fig.width=5.5,fig.height=4} 
 
-if (nrow(DCRS_Data_Hosp3 != 0)) {
+if (nrow(DCRS_Data_Hosp_chart2 != 0)) {
 hosp_review_chart +
       theme(text = element_text(size = 8),
         plot.title.position = "plot")
@@ -655,6 +735,7 @@ block_section(
 # **Hospice Summary**
 
 - Of the `r hospice_total` hospice cases reviewed for the year, `r hospice_number_top` (`r hospice_percent_top`) occurred at `r hospice_name`, of which `r hospice_number_notinorder` (`r hospice_percent_notinorder`) were found to be 'not in order'. *Table 7*
+`r hospice_sig`
 
 <br>
 ```{r hospice review start}
@@ -671,11 +752,13 @@ if (nrow(DCRS_Data_Hospice) > 1) {
 dcrs_table_hospice } else {"Not enough data"}
 
 ```
+`r sig_table7`
+
 `r officer::run_columnbreak()`
 ```{r, fig.width=5.5,fig.height=4} 
 
 #some boards may have no hospice data so this will skip those if true
-if (nrow(DCRS_Data_Hospice3 != 0)) {
+if (nrow(DCRS_Data_Hospice_chart2 != 0)) {
 hospice_review_chart +
       theme(text = element_text(size = 8),
         plot.title.position = "plot")
@@ -704,6 +787,7 @@ block_section(
 # **Cause of Death Summary**
 
 - Of the `r nio_total` cases 'not in order' at NHS `r Board` during `r year3`, the main cause of death recorded was `r top_cause_name` with `r top_cause_number` cases.  `r top_cause_place_percentage` of these occurred at `r top_cause_place`. *Chart 11*
+`r diag_sig`
 
 `r officer::run_columnbreak()`
 
@@ -736,6 +820,22 @@ Hybrid level 1 review includes a review of the MCCD, patient KIS and discussion 
 `r reduction_table`
 
 \newpage
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
 <br>
 
 <br>

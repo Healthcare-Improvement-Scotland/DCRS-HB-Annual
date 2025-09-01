@@ -31,9 +31,9 @@ dcrs_data <- dcrs_raw %>%
          #Set certain financial years for reporting (1 is rarely used in this report)
          `Created On` = as.Date(`Created On`, "%d/%m/%Y"),
 # update dates ------------------------------------------------------------
-         Year = case_when(`Created On` >= "2021-04-01" & `Created On` <= "2022-03-31" ~ 1, 
-                          `Created On` >= "2022-04-01" & `Created On` <= "2023-03-31" ~ 2,
-                          `Created On` >= "2023-04-01" & `Created On` <= "2024-03-31" ~ 3))
+         Year = case_when(`Created On` >= "2022-04-01" & `Created On` <= "2023-03-31" ~ 1, 
+                          `Created On` >= "2023-04-01" & `Created On` <= "2024-03-31" ~ 2,
+                          `Created On` >= "2024-04-01" & `Created On` <= "2025-03-31" ~ 3))
 
 
 
@@ -104,6 +104,7 @@ dcrs_data_report <- dcrs_data %>%
                                        `Breach Reason` == "Delay in obtaining additional information" |
                                        `Breach Reason` == "Delay in receiving email amendment/replacement", na.rm = TRUE),
             total_breach_dcrsdelay = sum(NiO != "" & `Breach Reason` == "DCRS delay", na.rm = TRUE),
+            total_breach_dual =sum(NiO != "" & `Breach Reason` == "Dual delay", na.rm = TRUE),
             total_breach_otheralt = sum(NiO != "" & `Breach Reason` == "Other", na.rm = TRUE),
             
             ###Table 5###
@@ -215,11 +216,12 @@ dcrs_data_enquiry_all <- rbind(dcrs_data_enquiry %>% filter(`Health Board` == Bo
 dcrs_data_kis <- dcrs_data %>%
  filter(`Created On` < end_date,
         `Case Type` != "Repatriation",
+        kischeckstatus != "No data",
         kischecknotes != "") %>%
  mutate(kischecknotes = iconv(paste(kischecknotes), from="UTF-8", to="UTF-8", sub="NA"), 
         kischecknotes = tolower(kischecknotes),
         kis_flag = case_when(str_detect(`kischecknotes`, fixed("no kis")) ~ 1,              #cases with "no kis" anywhere
-                             str_detect(`kischecknotes`, fixed("no chi/kis")) ~ 1,          #cases with "no chi/kis" anywhere
+                             str_detect(`kischecknotes`, fixed("no chi")) ~ 1,              #cases with "no chi" anywhere
                              str_detect(`kischecknotes`, fixed("no information")) ~ 1,      #cases with "no information" anywhere
                              str_detect(`kischecknotes`, fixed("no record")) ~ 1,           #cases with "no record" anywhere
                              str_detect(`kischecknotes`, fixed("patient not found")) ~ 1,   #cases with "patient not found" anywhere
@@ -227,6 +229,7 @@ dcrs_data_kis <- dcrs_data %>%
                              substr(`kischecknotes`,1,6) == "no kis" ~ 1,                   #cases with "no kis" at the start with additional text
                              substr(`kischecknotes`,1,4) == "none" ~ 1,                     #cases with "none" at the start
                              substr(`kischecknotes`,1,3) == "nil" & nchar(`kischecknotes`) == 3 ~ 1,  #cases with "nil" at the start and no additional text
+                             substr(`kischecknotes`,1,8) == "no check" ~ 1,                 #cases with "no check" at the start with additional text
                               TRUE ~ 0)) %>%
   filter(kis_flag != 1,
          Year == 2 | Year == 3) %>%
@@ -253,7 +256,61 @@ dcrs_data_kis_all <- rbind(dcrs_data_kis %>% filter(`Health Board` == Board) %>%
 
 #set hospital review data
 
-###Table 6 - Hospital Review
+###Table 6 - Hospital Review - Significant values
+DCRS_Data_Hosp_sig <- DCRS_DATA_Loc_DIAG %>%
+  filter(Health_Board == Board,
+         YEAR == paste0("Year ", y2) | YEAR == paste0("Year ", y3),
+         instgrp2 == "NHS Hospital") %>%
+  mutate(YEAR = case_when(YEAR == paste0("Year ", y2) ~ "Year1", YEAR == paste0("Year ", y3) ~ "Year2")) %>%
+  group_by(YEAR, Locname) %>%
+  summarise(case_in_order = sum(Review == "Case in Order"),
+            case_not_in_order = sum(Review == "Case not in Order"),
+            case_report_pf = sum(Review == "Reported to PF"),
+            case_total = (case_in_order + case_not_in_order + case_report_pf)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = c(YEAR), 
+              values_from = c('case_in_order', 'case_not_in_order', 'case_report_pf', 'case_total')) %>%
+  mutate_all(~replace(., is.na(.), 0)) %>%
+  mutate(case_total_Year1 = case_when(is.na(case_total_Year1) ~ 0, TRUE ~ case_total_Year1),
+         case_total_Year2 = case_when(is.na(case_total_Year2) ~ 0, TRUE ~ case_total_Year2),
+         denom1 = sum(case_total_Year1), denom2 = sum(case_total_Year2)) %>%
+  filter(case_total_Year1 >= 1 & case_total_Year2 >= 1) %>%
+  arrange(desc(case_total_Year2)) %>% #sort highest to lowest
+  mutate(ci_mn = BinomDiffCI(x1 = case_in_order_Year1, n1 = case_total_Year1, x2 = case_in_order_Year2, n2 = case_total_Year2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         io_sig = case_when(case_total_Year1 >= 10 & case_total_Year2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                               TRUE ~ ""),
+         ci_mn = BinomDiffCI(x1 = case_not_in_order_Year1, n1 = case_total_Year1, x2 = case_not_in_order_Year2, n2 = case_total_Year2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         nio_sig = case_when(case_total_Year1 >= 10 & case_total_Year2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                            TRUE ~ ""),
+         ci_mn = BinomDiffCI(x1 = case_report_pf_Year1, n1 = case_total_Year1, x2 = case_report_pf_Year2, n2 = case_total_Year2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         pf_sig = case_when(case_total_Year1 >= 10 & case_total_Year2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                            TRUE ~ ""),
+         io_rate = case_in_order_Year2/case_total_Year2,
+         io_rate_old = case_in_order_Year1/case_total_Year1,
+         nio_rate = case_not_in_order_Year2/case_total_Year2,
+         nio_rate_old = case_not_in_order_Year1/case_total_Year1,
+         pf_rate = case_report_pf_Year2/case_total_Year2,
+         pf_rate_old = case_report_pf_Year1/case_total_Year1,
+         io_direction = case_when(io_sig == "*" & io_rate > io_rate_old ~ "increase",
+                                  io_sig == "*" & io_rate < io_rate_old ~ "decrease",
+                               TRUE ~ ""),  
+         io_sig = case_when(io_sig == "*" & io_rate > io_rate_old ~ "*^",
+                            io_sig == "*" & io_rate < io_rate_old ~ "*v",
+                            TRUE ~ ""),
+         nio_direction = case_when(nio_sig == "*" & nio_rate > nio_rate_old ~ "increase",
+                                  nio_sig == "*" & nio_rate < nio_rate_old ~ "decrease",
+                                 TRUE ~ ""),  
+         nio_sig = case_when(nio_sig == "*" & nio_rate > nio_rate_old ~ "*^",
+                             nio_sig == "*" & nio_rate < nio_rate_old ~ "*v",
+                             TRUE ~ ""),
+         pf_direction = case_when(pf_sig == "*" & pf_rate > pf_rate_old ~ "increase",
+                                  io_sig == "*" & pf_rate < pf_rate_old ~ "decrease",
+                                 TRUE ~ ""),  
+         pf_sig = case_when(pf_sig == "*" & pf_rate > pf_rate_old ~ "*^",
+                            pf_sig == "*" & pf_rate < pf_rate_old ~ "*v",
+                            TRUE ~ "")) %>%
+  select(Locname, io_direction, io_sig, nio_direction, nio_sig, pf_direction, pf_sig)
+
 DCRS_Data_Hosp <- DCRS_DATA_Loc_DIAG %>%
   filter(Health_Board == Board,
          YEAR == paste0("Year ", y3),
@@ -265,12 +322,16 @@ DCRS_Data_Hosp <- DCRS_DATA_Loc_DIAG %>%
             case_total = (case_in_order + case_not_in_order + case_report_pf)) %>%
   arrange(desc(case_total)) %>% #sort highest to lowest
   adorn_totals("row") %>% #add row with overall totals
-  mutate(in_order_percent = percent(case_in_order / case_total, accuracy = 0.1),
-         not_in_order_percent = percent(case_not_in_order / case_total, accuracy = 0.1),
-         report_pf_percent = percent(case_report_pf / case_total, accuracy = 0.1),
+  left_join(DCRS_Data_Hosp_sig, by = "Locname") %>%
+  mutate(io_sig = case_when(is.na(io_sig) ~ "", TRUE ~ io_sig),
+         nio_sig = case_when(is.na(nio_sig) ~ "", TRUE ~ nio_sig),
+         pf_sig = case_when(is.na(pf_sig) ~ "", TRUE ~ pf_sig),
+         in_order_percent = paste0(percent(case_in_order / case_total, accuracy = 0.1), io_sig),
+         not_in_order_percent = paste0(percent(case_not_in_order / case_total, accuracy = 0.1), nio_sig),
+         report_pf_percent = paste0(percent(case_report_pf / case_total, accuracy = 0.1), pf_sig),
          total_all_percent =percent(case_total / (sum(case_total)/2), accuracy = 0.1)) %>%
   select(Locname, case_in_order, in_order_percent,
-         case_not_in_order, not_in_order_percent,
+         case_not_in_order, not_in_order_percent, 
          case_report_pf, report_pf_percent,
          case_total, total_all_percent)
 
@@ -278,6 +339,62 @@ DCRS_Data_Hosp <- DCRS_DATA_Loc_DIAG %>%
 # get hospice aggregates --------------------------------------------------
 
 #set hospice review data
+hospice_count <- DCRS_DATA_Loc_DIAG %>%
+  filter(Health_Board == Board, YEAR == paste0("Year ", y2) | YEAR == paste0("Year ", y3), instgrp2 == "Hospice") %>%
+  summarise(cases = n()) %>% mutate(cases = case_when(cases < 10 ~ 0, TRUE ~ cases)) %>% pull(cases)
+
+if(hospice_count >= 1) {
+###Table 7 - Hospice Review - Significant values
+DCRS_Data_Hospice_sig <- DCRS_DATA_Loc_DIAG %>%
+  filter(Health_Board == Board,
+         YEAR == paste0("Year ", y2) | YEAR == paste0("Year ", y3),
+         instgrp2 == "Hospice") %>%
+  mutate(YEAR = case_when(YEAR == paste0("Year ", y2) ~ "Year1", YEAR == paste0("Year ", y3) ~ "Year2")) %>%
+  group_by(YEAR, Locname) %>%
+  summarise(case_in_order = sum(Review == "Case in Order"),
+            case_not_in_order = sum(Review == "Case not in Order"),
+            case_report_pf = sum(Review == "Reported to PF"),
+            case_total = (case_in_order + case_not_in_order + case_report_pf)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = c(YEAR), 
+              values_from = c('case_in_order', 'case_not_in_order', 'case_report_pf', 'case_total')) %>%
+  filter(case_total_Year1 >= 1 & case_total_Year2 >= 1) %>%
+  mutate(ci_mn = BinomDiffCI(x1 = case_in_order_Year1, n1 = case_total_Year1, x2 = case_in_order_Year2, n2 = case_total_Year2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         io_sig = case_when(case_total_Year1 >= 10 & case_total_Year2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                            TRUE ~ ""),
+         ci_mn = BinomDiffCI(x1 = case_not_in_order_Year1, n1 = case_total_Year1, x2 = case_not_in_order_Year2, n2 = case_total_Year2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         nio_sig = case_when(case_total_Year1 >= 10 & case_total_Year2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                             TRUE ~ ""),
+         ci_mn = BinomDiffCI(x1 = case_report_pf_Year1, n1 = case_total_Year1, x2 = case_report_pf_Year2, n2 = case_total_Year2, method="mn"),  #Apply Miettinen-Nurminen CI Method for significance between 2 years
+         pf_sig = case_when(case_total_Year1 >= 10 & case_total_Year2 >= 10 ~ (case_when(ci_mn[, "lwr.ci"] < 0 & ci_mn[, "upr.ci"] > 0 ~ "", TRUE ~ "*")), #Flag with * if significance is found (if sample is at least 20 cases)
+                            TRUE ~ ""),
+         io_rate = case_in_order_Year2/case_total_Year2,
+         io_rate_old = case_in_order_Year1/case_total_Year1,
+         nio_rate = case_not_in_order_Year2/case_total_Year2,
+         nio_rate_old = case_not_in_order_Year1/case_total_Year1,
+         pf_rate = case_report_pf_Year2/case_total_Year2,
+         pf_rate_old = case_report_pf_Year1/case_total_Year1,
+         io_direction = case_when(io_sig == "*" & io_rate > io_rate_old ~ "increase",
+                                  io_sig == "*" & io_rate < io_rate_old ~ "decrease",
+                                  TRUE ~ ""),  
+         io_sig = case_when(io_sig == "*" & io_rate > io_rate_old ~ "*^",
+                            io_sig == "*" & io_rate < io_rate_old ~ "*v",
+                            TRUE ~ ""),
+         nio_direction = case_when(nio_sig == "*" & nio_rate > nio_rate_old ~ "increase",
+                                   nio_sig == "*" & nio_rate < nio_rate_old ~ "decrease",
+                                   TRUE ~ ""),  
+         nio_sig = case_when(nio_sig == "*" & nio_rate > nio_rate_old ~ "*^",
+                             nio_sig == "*" & nio_rate < nio_rate_old ~ "*v",
+                             TRUE ~ ""),
+         pf_direction = case_when(pf_sig == "*" & pf_rate > pf_rate_old ~ "increase",
+                                  io_sig == "*" & pf_rate < pf_rate_old ~ "decrease",
+                                  TRUE ~ ""),  
+         pf_sig = case_when(pf_sig == "*" & pf_rate > pf_rate_old ~ "*^",
+                            pf_sig == "*" & pf_rate < pf_rate_old ~ "*v",
+                            TRUE ~ "")) %>%
+  select(Locname, io_direction, io_sig, nio_direction, nio_sig, pf_direction, pf_sig)
+} else {DCRS_Data_Hospice_sig <- data.frame(Locname = Board, io_direction = "", io_sig = "", 
+                                            nio_direction = "", nio_sig = "", pf_direction = "", pf_sig = "")}
 
 ###Table 7 - Hospice Review
 DCRS_Data_Hospice <- DCRS_DATA_Loc_DIAG %>%
@@ -291,10 +408,14 @@ DCRS_Data_Hospice <- DCRS_DATA_Loc_DIAG %>%
             case_total = (case_in_order + case_not_in_order + case_report_pf)) %>%
   arrange(desc(case_total)) %>% #sort highest to lowest
   adorn_totals("row") %>% #add row with overall totals
-  mutate(in_order_percent = percent(case_in_order / case_total, accuracy = 0.1),
-         not_in_order_percent = percent(case_not_in_order / case_total, accuracy = 0.1),
-         report_pf_percent = percent(case_report_pf / case_total, accuracy = 0.1),
-         total_all_percent = percent(case_total / (sum(case_total)/2), accuracy = 0.1)) %>%
+  left_join(DCRS_Data_Hospice_sig, by = "Locname") %>%
+  mutate(io_sig = case_when(is.na(io_sig) ~ "", TRUE ~ io_sig),
+         nio_sig = case_when(is.na(nio_sig) ~ "", TRUE ~ nio_sig),
+         pf_sig = case_when(is.na(pf_sig) ~ "", TRUE ~ pf_sig),
+         in_order_percent = paste0(percent(case_in_order / case_total, accuracy = 0.1), io_sig),
+         not_in_order_percent = paste0(percent(case_not_in_order / case_total, accuracy = 0.1), nio_sig),
+         report_pf_percent = paste0(percent(case_report_pf / case_total, accuracy = 0.1), pf_sig),
+         total_all_percent =percent(case_total / (sum(case_total)/2), accuracy = 0.1)) %>%
   select(Locname, case_in_order, in_order_percent,
          case_not_in_order, not_in_order_percent,
          case_report_pf, report_pf_percent,
