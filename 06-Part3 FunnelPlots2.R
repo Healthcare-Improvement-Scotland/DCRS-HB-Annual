@@ -131,18 +131,18 @@ ggsave(dcrs_replace_funnel,
 
 #replace funnel narrative - identify where a point is in relation to limits
 replace_outliers <- dcrs_replace_funnel_data %>%
-  mutate(outlier_text = case_when(z_score > 2 ~ "high compared to the Scotland average",
-                                  z_score < -2 ~ "low compared to the Scotland average",
-                                  z_score > 3 ~ "a high outlier compared to the Scotland average",
-                                  z_score < -3 ~ "a low outlier compared to the Scotland average",
-                                  z_score >= -2 & z_score <= 2 ~ "within a normal range of deviation from the mean")) %>%
+  mutate(outlier_text = case_when(z_score > 2 ~ "high compared to the Scotland mean",
+                                  z_score < -2 ~ "low compared to the Scotland mean",
+                                  z_score > 3 ~ "a high outlier compared to the Scotland mean",
+                                  z_score < -3 ~ "a low outlier compared to the Scotland mean",
+                                  z_score >= -2 & z_score <= 2 ~ "within a normal range of deviation from the Scotland mean")) %>%
   filter(`Health Board` == Board) %>%
   pull(outlier_text)
 
 #Note for key messages if any outlying signals are found
 replace_outliers_summary <- dcrs_replace_funnel_data %>%
-  mutate(outlier_text = case_when(z_score > 3 ~ paste0("The board was a high outlier compared to the Scotland average for cases requiring replacement in ",year3,"."),
-                                  z_score < -3 ~ paste0("The board was a low outlier compared to the Scotland average for cases requiring replacement in ",year3,"."),
+  mutate(outlier_text = case_when(z_score > 3 ~ paste0("The funnel chart shows that the board was a high outlier compared to the Scotland mean for cases requiring replacement in ",year3,"."),
+                                  z_score < -3 ~ paste0("The funnel chart shows that the board was a low outlier compared to the Scotland mean for cases requiring replacement in ",year3,"."),
                                   TRUE ~ "")) %>%
   filter(`Health Board` == Board) %>%
   pull(outlier_text)
@@ -158,10 +158,9 @@ key_message_note <- data.frame(key_message_note = c(hb_new_change_status, nio_ou
 count_key <- key_message_note %>% summarise(count_key = sum(note_flag)) %>% pull(count_key)
 
 #If any are present then include in note for key messages, otherwise state that there are no significant outcomes
-key_message <- key_message_note %>% 
-  mutate(key_message = case_when(count_key != 0 ~ key_message_note,
-                                 TRUE ~ "The board had no significant outcomes in run chart or funnel plot analysis."),
-         duplicate_flag = !duplicated(key_message)) %>%
-  filter(duplicate_flag == TRUE) %>%
-  pull(key_message)
+if (count_key > 0) {
+key_message <- key_message_note %>%
+  filter(note_flag == 1) %>%
+  pull(key_message_note)
 
+} else {key_message = "The board had no significant signals in run chart or funnel plot analysis."}

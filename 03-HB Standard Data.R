@@ -248,7 +248,7 @@ dcrs_data_scotland_kis <- dcrs_data_kis %>%
 dcrs_data_kis_all <- rbind(dcrs_data_kis %>% filter(`Health Board` == Board) %>% mutate(`Health Board` = 'Board'), dcrs_data_scotland_kis) %>%
                      left_join(dcrs_data_total_all, by = c("Year", "Health Board")) %>%
   mutate(case_total = total_standard + total_interested + total_registrar + total_for_cause) %>%
-  select(Year, `Health Board`, kis_count, case_total) %>%
+  select(Year, `Health Board`, case_total, kis_count) %>%
   mutate(kis_percent = round(kis_count/case_total * 100))
 
 

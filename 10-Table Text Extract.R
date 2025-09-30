@@ -9,46 +9,49 @@ Scot_total <- prettyNum(Scot_total, big.mark = ",", scientific = FALSE)
 
 #Table 2
 #In order percent
-io_percent_scot <- dcrs_table_data %>% filter(event == 'total_in_order' ) %>%  pull(Scot_percent_year3)
+io_percent_scot <- dcrs_table_data %>% filter(event == 'total_in_order' ) %>% mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>%  pull(Scot_percent_year3)
 
 #Not in order total
 nio_total_scot <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% pull('3_Scotland')
 
 #Not in order percent
-nio_percent_scot <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% pull(Scot_percent_year3)
+nio_percent_scot <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% pull(Scot_percent_year3)
 
 #Replacement MCCD total
 mccd_total_scot <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% pull('3_Scotland')
 
 #Replacement MCCD percent
-mccd_percent_scot <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% pull(Scot_percent_year3)
+mccd_percent_scot <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% pull(Scot_percent_year3)
 
 #Email amendment total
 email_total_scot <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% pull('3_Scotland')
 
 #Email amendment percent
-email_percent_scot <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% pull(Scot_percent_year3)
+email_percent_scot <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% pull(Scot_percent_year3)
 
 #PF report percent
-pf_percent_scot <- dcrs_table_data %>% filter(event == 'total_report_to_pf') %>% pull(Scot_percent_year3)
+pf_percent_scot <- dcrs_table_data %>% filter(event == 'total_report_to_pf') %>% mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% pull(Scot_percent_year3)
 
 #Table 3
 #Electronic MCCD percent
-emccd_percent_scot <- dcrs_table_data5 %>% filter(event == 'total_emccd') %>% pull(Scot_percent_year3)
+emccd_percent_scot <- dcrs_table_data5 %>% filter(event == 'total_emccd') %>% mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% pull(Scot_percent_year3)
 
 #Paper MCCD percent
-mccd_percent_scot2 <- dcrs_table_data5 %>% filter(event == 'total_mccd') %>% pull(Scot_percent_year3)
+mccd_percent_scot2 <- dcrs_table_data5 %>% filter(event == 'total_mccd') %>% mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% pull(Scot_percent_year3)
 
 #Table 4
 #Breach overal percentage
 total_breach_percent_scot <- dcrs_table_data_breach3 %>% filter(event == 'total_breach') %>% 
+  mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% 
   pull(Scot_percent_year3)
 
 #Certifying doctor percent
-cd_breach_percent_scot <- dcrs_table_data_breach3 %>% filter(event == 'total_cd_unavailable') %>% pull(Scot_percent_year3)
+cd_breach_percent_scot <- dcrs_table_data_breach3 %>% filter(event == 'total_cd_unavailable') %>% 
+  mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% pull(Scot_percent_year3)
 
 #Other reason percent
-other_breach_percent_scot <- dcrs_table_data_breach3 %>% filter(event == 'total_breach_other') %>% pull(Scot_percent_year3)
+other_breach_percent_scot <- dcrs_table_data_breach3 %>% filter(event == 'total_breach_other') %>% 
+  mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% pull(Scot_percent_year3)
 
 #Receiving info reason percent
 delay_percent_scot <- breach_other %>% filter(event == 'total_breach_delay') %>% pull(Scot_other_percent)
@@ -63,7 +66,8 @@ dual_delay_percent_scot <- breach_other %>% filter(event == 'total_breach_dual')
 esc_level_scot <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% pull(`3_Scotland`)
 
 #Escalated level percent
-esc_level_percent_scot <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% pull(Scot_percent_year3)
+esc_level_percent_scot <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% 
+  mutate(Scot_percent_year3 = gsub("\\*", "", Scot_percent_year3)) %>% pull(Scot_percent_year3)
 
 #Main reason total
 top_esc_scot <- dcrs_data %>% filter(Year == 3, `Escalation Reason` != "") %>% group_by(`Escalation Reason`) %>% 
@@ -84,45 +88,48 @@ board_total <- prettyNum(board_total, big.mark = ",", scientific = FALSE)
 
 #Table 2
 #In order percent
-io_percent <- dcrs_table_data %>% filter(event == 'total_in_order' ) %>%  pull(HB_percent_year3)
+io_percent <- dcrs_table_data %>% filter(event == 'total_in_order' ) %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #Not in order total
 nio_total <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% pull('3_Board')
 
 #Not in order total
-nio_percent <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% pull(HB_percent_year3)
+nio_percent <- dcrs_table_data %>% filter(event == 'total_not_in_order' ) %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #Replacement MCCD total
 mccd_total <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% pull('3_Board')
 
 #Replacement MCCD percent
-mccd_percent <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% pull(HB_percent_year3)
+mccd_percent <- dcrs_table_data %>% filter(event == 'total_replacement_mccd' ) %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #Email amendment total
 email_total <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% pull('3_Board')
 
 #Email amendment percent
-email_percent <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% pull(HB_percent_year3)
+email_percent <- dcrs_table_data %>% filter(event == 'total_email_amendment' ) %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #PF report percent
-pf_percent <- dcrs_table_data %>% filter(event == 'total_report_to_pf') %>% pull(HB_percent_year3)
+pf_percent <- dcrs_table_data %>% filter(event == 'total_report_to_pf') %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #Table 3
 #Electronic MCCD percent
-emccd_percent <- dcrs_table_data5 %>% filter(event == 'total_emccd') %>% pull(HB_percent_year3)
+emccd_percent <- dcrs_table_data5 %>% filter(event == 'total_emccd') %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #Paper MCCD percent
-mccd_percent2 <- dcrs_table_data5 %>% filter(event == 'total_mccd') %>% pull(HB_percent_year3)
+mccd_percent2 <- dcrs_table_data5 %>% filter(event == 'total_mccd') %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #Table 4
 #Breach overall percentage
-total_breach_percent <- dcrs_table_data_breach3 %>% filter(event == 'total_breach') %>% pull(HB_percent_year3)
+total_breach_percent <- dcrs_table_data_breach3 %>% filter(event == 'total_breach') %>% 
+  mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #Certifying doctor percent
-cd_breach_percent <- dcrs_table_data_breach3 %>% filter(event == 'total_cd_unavailable') %>% pull(HB_percent_year3)
+cd_breach_percent <- dcrs_table_data_breach3 %>% filter(event == 'total_cd_unavailable') %>% 
+  mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #Other reason percent
 other_breach_percent <- dcrs_table_data_breach3 %>% filter(event == 'total_breach_other') %>% 
+  mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% 
   pull(HB_percent_year3)
 
 #Receiving info reason percent
@@ -138,7 +145,8 @@ dual_delay_percent <- breach_other %>% filter(event == 'total_breach_dual') %>% 
 esc_level <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% pull('3_Board')
 
 #Escalated level percent
-esc_level_percent <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% pull(HB_percent_year3)
+esc_level_percent <- dcrs_table_data_level3 %>% filter(event == 'escalated') %>% 
+  mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
 
 #Main reason total
 top_esc <- dcrs_data %>% filter(Year == 3, `Health Board` == Board, `Escalation Reason` != "") %>% group_by(`Escalation Reason`) %>% 
@@ -322,8 +330,9 @@ if (sig_count >= 1) { #only create if significant changes are identified
            decrease = paste0(decrease, collapse = ''),
            increase = paste0(increase, collapse = ''),
            sig = case_when(str_detect(`direction`, fixed("decrease")) & str_detect(`direction`, fixed("increase"))  ~ 
-                             paste0("+ ", decrease, " saw a significant decrease while ", 
-                                    increase," saw a significant increase compared to ", year2, "."),
+                             paste0("+ ", increase," saw a significant increase while ",
+                                    decrease, " saw a significant decrease compared to ", 
+                                     year2, "."),
                            str_detect(`direction`, fixed("decrease")) ~ paste0("+ ", decrease, 
                                                                                " saw a significant decrease compared to ", year2, "."),
                            str_detect(`direction`, fixed("increase")) ~ paste0("+ ", increase, 
@@ -373,8 +382,8 @@ if (sig_count >= 1) { #only create if significant changes are identified
            decrease = paste0(decrease, collapse = ''),
            increase = paste0(increase, collapse = ''),
            sig = case_when(str_detect(`direction`, fixed("decrease")) & str_detect(`direction`, fixed("increase"))  ~ 
-                             paste0("+ ", decrease, " saw a significant decrease while ", 
-                                    increase," saw a significant increase compared to ", year2, "."),
+                             paste0("+ ", increase," saw a significant increase while ",
+                                    decrease, " saw a significant decrease compared to ", year2, "."),
                            str_detect(`direction`, fixed("decrease")) ~ paste0("+ ", decrease, 
                                                                                " saw a significant decrease compared to ", year2, "."),
                            str_detect(`direction`, fixed("increase")) ~ paste0("+ ", increase, 

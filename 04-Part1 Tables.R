@@ -85,9 +85,9 @@ dcrs_table_total <- flextable(dcrs_table_data_total)%>%
   border_outer(border = brdr) %>%
   fix_border_issues() %>%
   set_caption(caption = "Table 1: Number and percentage of cases received ") %>%
-  width(j = 1, width = 0.9, unit = "in")  %>%
+  width(j = 1, width = 1.3, unit = "in")  %>%
   width(j = 2:13, width = 0.45, unit = "in") %>%
-  height_all(height = 0.24, part = "all") %>%
+  height_all(height = 0.23, part = "all") %>%
   height(i = 1:2, part = "header", height = 0.2) %>%
   hrule(rule = "exact", part = "all")  
 
@@ -753,9 +753,8 @@ dcrs_data_wrangle_kis <- dcrs_data_kis_all %>%
 #KIS Summary table
 kis_table <- flextable(dcrs_data_wrangle_kis) %>%
   set_header_labels(event = "", `2_Scotland` = "Scotland", `2_Board` = "Board", `3_Scotland` = "Scotland", `3_Board` = "Board") %>%  #Change header titles
-  #  bold(i = 1:5, j = 1, bold = TRUE) %>%
-  compose(i = 1, j = 1, as_paragraph(as_chunk("Completed KIS"))) %>%  #Change row titles
-  compose(i = 2, j = 1, as_paragraph(as_chunk("Total number of reviews"))) %>% 
+  compose(i = 1, j = 1, as_paragraph(as_chunk("Total number of reviews"))) %>% 
+  compose(i = 2, j = 1, as_paragraph(as_chunk("Completed KIS"))) %>%  #Change row titles
   compose(i = 3, j = 1, as_paragraph(as_chunk("Percentage"))) %>% 
   padding(padding.top = 1, part = "all") %>%
   padding(padding.bottom = 1, part = "all") %>%

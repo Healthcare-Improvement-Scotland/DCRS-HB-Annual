@@ -10,7 +10,7 @@ renderHBReport <- function(hdr, OutName) {
     output_file = OutName)
 }
 
-date <- "2025-08-29"
+date <- "DATE"
 
 #run script for each HB and create reports
 renderHBReport(hdr <<- "Ayrshire and Arran", OutName = paste0('Reports/',date,'_AA_6_monthly_review_and_comparative_data_report v01'))

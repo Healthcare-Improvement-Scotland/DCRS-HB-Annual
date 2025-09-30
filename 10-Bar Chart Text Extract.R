@@ -18,6 +18,9 @@ if (!is.na(closure_nio)) {
            closure_category = str_replace(closure_category, "disposal_hazard", "'disposal hazard incorrect'"),
            closure_category = str_replace(closure_category, "sequence_of_cause", "'sequence of cause of death incorrect'"), 
            closure_category = str_replace(closure_category, "cause_too_vague", "'cause of death too vague'"),
+           closure_percent = gsub("\\*", "", closure_percent),
+           closure_percent = gsub("\\^", "", closure_percent),
+           closure_percent = gsub("v", "", closure_percent),
            `Health Board` = case_when(`Health Board` == "Board" ~ "Board", TRUE ~ ""))
 } else { #if no data is present create dummy dataframe
   dcrs_data_wrangle_closure <- data.frame(hb = "Board", closure_category = NA, closure_rate = NA, closure_rate_old = NA,
@@ -75,7 +78,7 @@ closure_value2 <- max_closure %>%
 #Text if primary/secondary care chart is used
 care_breakdown_text <- if(Board != "Borders" & Board != "Dumfries and Galloway" & Board != "Shetland" & Board != "Orkney" 
                           & Board != "Western Isles" & Board != "National Golden Jubilee"){
-  "Over the three years displayed, 'cause of death too vague' has been consistently the most common reason for a clinical error being recorded. A larger proportion of these certificates come from primary care compared to secondary care." 
+  "Over the three years displayed, 'cause of death too vague' has been consistently the most common reason for a clinical error being recorded." 
 } else { "" }
 
 #significant text depending on chart used
@@ -118,11 +121,11 @@ if(Board == "Borders" | Board == "Dumfries and Galloway" | Board == "Shetland" |
 
 #combine increase and decrease narrative for full narrative    
   if (increase_count >= 1 & decrease_count >= 1) {
-    scot_closure_sig = paste0("+ Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    scot_closure_sig = paste0("+ In Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    scot_closure_sig = paste0("+ Scotland, ", case_increase, " compared to ", year2, ".")
+    scot_closure_sig = paste0("+ In Scotland, ", case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    scot_closure_sig = paste0("+ Scotland, ", case_decrease, " compared to ", year2, ".")
+    scot_closure_sig = paste0("+ In Scotland, ", case_decrease, " compared to ", year2, ".")
   } else { scot_closure_sig = "" }
   
   #HB
@@ -161,11 +164,11 @@ if(Board == "Borders" | Board == "Dumfries and Galloway" | Board == "Shetland" |
   
 #combine increase and decrease narrative for full narrative  
   if (increase_count >= 1 & decrease_count >= 1) {
-    hb_closure_sig = paste0("+ At NHS ", Board, ", ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    hb_closure_sig = paste0("+ In NHS ", Board, ", ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    hb_closure_sig = paste0("+ At NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
+    hb_closure_sig = paste0("+ In NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    hb_closure_sig = paste0("+ At NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
+    hb_closure_sig = paste0("+ In NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
   } else { hb_closure_sig = "" }
   
 } else {
@@ -406,6 +409,9 @@ if (!is.na(closure_too_vauge_nio)) {
                                          "stroke", "'stroke'"),
            cause_too_vague = str_replace(cause_too_vague, 
                                          "lifestyle_factor", "'lifestyle factors (smoking, obesity, alcohol'"),
+           cause_too_vague_percent = gsub("\\*", "", cause_too_vague_percent),
+           cause_too_vague_percent = gsub("\\^", "", cause_too_vague_percent),
+           cause_too_vague_percent = gsub("v", "", cause_too_vague_percent),
            hb = case_when(`Health Board` == "Board" ~ "Board", TRUE ~ ""))
 } else { #if no data is present create dummy dataframe
   dcrs_data_wrangle_death_cause <- data.frame(hb = "Board", cause_too_vague = NA, cause_too_vague_rate = NA, cause_too_vague_percent = NA)}
@@ -503,11 +509,11 @@ if (HB_n1 > 0 & HB_n2 > 0) { #only create CI narrative if board has data present
   
   #combine increase and decrease for full singificant narrative
   if (increase_count >= 1 & decrease_count >= 1) {
-    scot_cause_sig = paste0("+ At Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    scot_cause_sig = paste0("+ In Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    scot_cause_sig = paste0("+ At Scotland, ", case_increase, " compared to ", year2, ".")
+    scot_cause_sig = paste0("+ In Scotland, ", case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    scot_cause_sig = paste0("+ At Scotland, ", case_decrease, " compared to ", year2, ".")
+    scot_cause_sig = paste0("+ In Scotland, ", case_decrease, " compared to ", year2, ".")
   } else { scot_cause_sig = "" }
   
   #HB
@@ -546,11 +552,11 @@ if (HB_n1 > 0 & HB_n2 > 0) { #only create CI narrative if board has data present
   
   #combine increase and decrease for full significant narrative
   if (increase_count >= 1 & decrease_count >= 1) {
-    hb_cause_sig = paste0("+ At NHS ", Board, ", ",case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    hb_cause_sig = paste0("+ In NHS ", Board, ", ",case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    hb_cause_sig = paste0("+ At NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
+    hb_cause_sig = paste0("+ In NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    hb_cause_sig = paste0("+ At NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
+    hb_cause_sig = paste0("+ In NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
   } else { hb_cause_sig = "" }
 } else { scot_cause_sig = "" 
 hb_cause_sig = ""}
@@ -594,6 +600,9 @@ if (!is.na(closure_admin_nio)) {
                                                 "consultant_incorrect", "'consultant's name incorrect'"),
            closure_category_admin = str_replace(closure_category_admin, 
                                                 "other_incorrect", "'other additional information incorrect'"),
+           admin_percent = gsub("\\*", "", admin_percent),
+           admin_percent = gsub("\\^", "", admin_percent),
+           admin_percent = gsub("v", "", admin_percent),
            hb = case_when(`Health Board` == "Board" ~ "Board", TRUE ~ ""))
 } else {#if no data is present create dummy dataframe
   dcrs_data_wrangle_admin_closure <- data.frame(hb = "Board", closure_category_admin = NA, admin_rate = NA, admin_percent = NA)}
@@ -677,13 +686,13 @@ if (HB_n1 > 0 & HB_n2 >0) { #only create CI narrative if board has data for both
     filter(closure_category_admin == max(closure_category_admin)) %>% 
     pull(case_decrease)
   
-  #combine increase and decrease for full sigficance narrative
+  #combine increase and decrease for full significance narrative
   if (increase_count >= 1 & decrease_count >= 1) {
-    scot_admin_sig = paste0("+ At Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    scot_admin_sig = paste0("+ In Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    scot_admin_sig = paste0("+ At Scotland, ", case_increase, " compared to ", year2, ".")
+    scot_admin_sig = paste0("+ In Scotland, ", case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    scot_admin_sig = paste0("+ At Scotland, ", case_decrease, " compared to ", year2, ".")
+    scot_admin_sig = paste0("+ In Scotland, ", case_decrease, " compared to ", year2, ".")
   } else { scot_admin_sig = "" }
   
   #HB
@@ -722,11 +731,11 @@ if (HB_n1 > 0 & HB_n2 >0) { #only create CI narrative if board has data for both
   
   #combine increase and decrease for full significance narrative
   if (increase_count >= 1 & decrease_count >= 1) {
-    hb_admin_sig = paste0("+ At NHS ", Board, ", ",case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    hb_admin_sig = paste0("+ In NHS ", Board, ", ",case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    hb_admin_sig = paste0("+ At NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
+    hb_admin_sig = paste0("+ In NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    hb_admin_sig = paste0("+ At NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
+    hb_admin_sig = paste0("+ In NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
   } else { hb_admin_sig = "" }
 } else { scot_admin_sig = "" 
 hb_admin_sig = ""}
@@ -762,6 +771,9 @@ if (!is.na(total_PF)) {
                                             "flagged_error", "'flagged in error'"),
            total_report_to_pf = str_replace(total_report_to_pf, 
                                             "other_report_pf", "'other report to PF'"),
+           pf_percent = gsub("\\*", "", pf_percent),
+           pf_percent = gsub("\\^", "", pf_percent),
+           pf_percent = gsub("v", "", pf_percent),
            hb = case_when(`Health Board` == "Board" ~ "Board", TRUE ~ ""))
 } else { #if no data is present create dummy dataframe
   PF_data_wrangle <- data.frame(hb = "Board", total_report_to_pf = NA, pf_rate = NA, pf_percent = NA)}
@@ -856,11 +868,11 @@ if (HB_n1 > 0 & HB_n2 > 0 ) { #only create if data is present for both years
   
   #combine increase and decrease for full significance narrative
   if (increase_count >= 1 & decrease_count >= 1) {
-    scot_pf_sig = paste0("+ At Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    scot_pf_sig = paste0("+ In Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    scot_pf_sig = paste0("+ At Scotland, ", case_increase, " compared to ", year2, ".")
+    scot_pf_sig = paste0("+ In Scotland, ", case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    scot_pf_sig = paste0("+ At Scotland, ", case_decrease, " compared to ", year2, ".")
+    scot_pf_sig = paste0("+ In Scotland, ", case_decrease, " compared to ", year2, ".")
   } else { scot_pf_sig = "" }
   
   #HB
@@ -899,11 +911,11 @@ if (HB_n1 > 0 & HB_n2 > 0 ) { #only create if data is present for both years
   
   #combine incrase and decrease for full significance narrative
   if (increase_count >= 1 & decrease_count >= 1) {
-    hb_pf_sig = paste0("+ At NHS ", Board, ", ",case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    hb_pf_sig = paste0("+ In NHS ", Board, ", ",case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    hb_pf_sig = paste0("+ At NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
+    hb_pf_sig = paste0("+ In NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    hb_pf_sig = paste0("+ At NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
+    hb_pf_sig = paste0("+ In NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
   } else { hb_pf_sig = "" }
 } else { scot_pf_sig = "" 
 hb_pf_sig = ""}
@@ -941,6 +953,9 @@ if (!is.na(total_enquiry)) {
                                                 "signposted", "'signposted'"),
            enquiry_category_total = str_replace(enquiry_category_total, 
                                                 "other", "'other'"),
+           enquiry_percent = gsub("\\*", "", enquiry_percent),
+           enquiry_percent = gsub("\\^", "", enquiry_percent),
+           enquiry_percent = gsub("v", "", enquiry_percent),
            hb = case_when(`Health Board` == "Board" ~ "Board", TRUE ~ ""))
 } else { #if no data is present create dummy dataframe
   enquiry_data_wrangle <- data.frame(hb = "Board", enquiry_category_total = NA, enquiry_rate = NA, enquiry_percent = NA)}
@@ -1021,11 +1036,11 @@ if (HB_n1 > 0 & HB_n2 > 0 ) { #only create narrative if data is present for both
   
   #combine increase and decrease for full significance narrative
   if (increase_count >= 1 & decrease_count >= 1) {
-    scot_enquiry_sig = paste0("+ At Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    scot_enquiry_sig = paste0("+ In Scotland, ", case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    scot_enquiry_sig = paste0("+ At Scotland, ", case_increase, " compared to ", year2, ".")
+    scot_enquiry_sig = paste0("+ In Scotland, ", case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    scot_enquiry_sig = paste0("+ At Scotland, ", case_decrease, " compared to ", year2, ".")
+    scot_enquiry_sig = paste0("+ In Scotland, ", case_decrease, " compared to ", year2, ".")
   } else { scot_enquiry_sig = "" }
   
   #HB
@@ -1064,11 +1079,11 @@ if (HB_n1 > 0 & HB_n2 > 0 ) { #only create narrative if data is present for both
   
   #combine increase and decrease for full significance narrative
   if (increase_count >= 1 & decrease_count >= 1) {
-    hb_enquiry_sig = paste0("+ At NHS ", Board, ", ",case_increase, ", and ", case_decrease, " compared to ", year2, ".")
+    hb_enquiry_sig = paste0("+ In NHS ", Board, ", ",case_increase, ", and ", case_decrease, " compared to ", year2, ".")
   } else if (increase_count >= 1) {
-    hb_enquiry_sig = paste0("+ At NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
+    hb_enquiry_sig = paste0("+ In NHS ", Board, ", ",case_increase, " compared to ", year2, ".")
   } else if (decrease_count >= 1) {
-    hb_enquiry_sig = paste0("+ At NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
+    hb_enquiry_sig = paste0("+ In NHS ", Board, ", ",case_decrease, " compared to ", year2, ".")
   } else { hb_enquiry_sig = "" }
 } else { scot_enquiry_sig = "" 
 hb_enquiry_sig = ""}
@@ -1138,6 +1153,11 @@ top_cause_name <- top_cause %>%
                                nrow(top_cause) >= 2 ~ top_cause_multiple)) %>%
   filter(row_number()==1) %>%
   pull(alt_value)
+
+DCRS_Data_Chapter2 <- DCRS_Data_Chapter2 %>%
+  mutate(case_percentage = gsub("\\*", "", case_percentage),
+         case_percentage = gsub("\\^", "", case_percentage),
+         case_percentage = gsub("v", "", case_percentage))
 
 #Max total
 top_cause_number <- DCRS_Data_Chapter2 %>% group_by(DiagGrp) %>% summarise(case_total = sum(case_total)) %>% filter(case_total == max(case_total)) %>% pull(case_total)

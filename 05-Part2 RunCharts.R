@@ -64,6 +64,118 @@ scot_run <- scot_run %>% left_join(scot_run_summary, by = "Created On") %>%
          median = median/100)
 
 
+#set board run chart data
+#Aggregate to Board level
+dcrs_data_run <- dcrs_data %>%
+  filter(`Case Type` == "Standard") %>%
+  #Update start date when moving on a year
+  filter(`Created On` < end_date & `Created On` >= "2020-01-01") %>%  
+  filter(`Health Board` == Board) %>%
+  #Set all dates to the 1st of the month to group by month
+  mutate(`Created On` = floor_date(`Created On`, "month")) %>%
+  group_by(`Created On`, `Health Board`) %>%
+  summarise(total_in_order = sum(`Case Status` == "Case in Order"),
+            total_not_in_order = sum(`Case Status` == "Case not in Order")
+            , .groups = "rowwise") %>%
+  #Dates to exclude due to reduction of DCRS service during pandemic
+  mutate(month_exclude = case_when((`Created On` >= "2020-03-01" & `Created On` <= "2020-08-01") |
+                                     (`Created On` >= "2020-11-01" & `Created On` <= "2021-05-01") |
+                                     (`Created On` >= "2021-10-01" & `Created On` <= "2022-03-01") |
+                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ "skip"),
+         case_total = (total_in_order + total_not_in_order),
+         percent_nio = (total_not_in_order / case_total*100),
+         percent_nio = case_when(percent_nio >= 0 ~ percent_nio, TRUE ~ 0))
+
+#Add April 2020 point as no data was collected during this month
+apr_data <- head(dcrs_data_run, 1) %>%
+  mutate(`Health Board` = Board,
+         `Created On` = "2020-04-01", 
+         total_in_order = 0, 
+         total_not_in_order = 0, 
+         month_exclude = "skip", 
+         case_total = 0, 
+         percent_nio = 0)
+
+#Combine April point with the dataset
+dcrs_data_run <- rbind(dcrs_data_run, apr_data)
+
+
+#r set board run chart data quarter (for boards on quarterly aggregates)
+
+dcrs_data_run_quarter <- dcrs_data %>%
+  filter(`Case Type` == "Standard") %>%
+  #Update start date when moving on a year
+  filter(`Created On` < end_date & `Created On` >= "2020-01-01") %>%  
+  filter(`Health Board` == Board) %>%
+  #Set all dates to the 1st of the quarter to group by quarter
+  mutate(`Created On` = floor_date(`Created On`, "quarter")) %>%
+  group_by(`Created On`, `Health Board`) %>%
+  summarise(total_in_order = sum(`Case Status` == "Case in Order"),
+            total_not_in_order = sum(`Case Status` == "Case not in Order")
+            , .groups = "rowwise") %>%
+  #Dates to exclude due to reduction of DCRS service during pandemic
+  mutate(month_exclude = case_when((`Created On` >= "2020-01-01" & `Created On` <= "2022-03-01") |
+                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ "skip"),
+         case_total = (total_in_order + total_not_in_order),
+         percent_nio = (total_not_in_order / case_total*100))
+
+
+#board run chart
+
+#If quarterly analysis then source and run the quarterly run chart function, else source and run the monthly run chart function
+if(Board == "Borders" | Board == "Dumfries and Galloway"){
+  
+  #Run chart analysis using the quarterly runchart function  
+  hb_run <- make_runchart(
+    dcrs_data_run_quarter,
+    observation = "percent_nio",
+    date = "Created On",
+    specs = "month_exclude",
+    baselinepts = 8,
+    temporarypts = 8,
+    onmedian = 0.01
+  ) %>%
+    mutate(grp = c(0,cumsum(abs(diff(is.na(month_exclude))))),  #add groupings required for line breaks
+           grp2 = case_when(median_name != lag(median_name) ~ 1, TRUE ~ 0),
+           grp2 = cumsum(grp2) + grp)
+  
+  hb_run_summary <- hb_run %>%
+    summarise_medians(observation_type = "Percentage") %>% 
+    filter(!is.na(median_label_display)) %>%
+    mutate(`Created On` = date_start) %>%
+    select(`Created On`, median_change_direction, median_change_pct_display, median_display, median_name_display, median_label_display)
+  
+  hb_run <- hb_run %>% left_join(hb_run_summary, by = "Created On") %>%
+    mutate(percent_nio = percent_nio/100,
+           median = median/100)
+} else {
+  
+  hb_run <- make_runchart(
+    dcrs_data_run,
+    observation = "percent_nio",
+    date = "Created On",
+    specs = "month_exclude",
+    baselinepts = 12,
+    temporarypts = 9,
+    onmedian = 0.01
+  ) %>%
+    mutate(grp = c(0,cumsum(abs(diff(is.na(month_exclude))))),  #add groupings required for line breaks
+           grp2 = case_when(median_name != lag(median_name) ~ 1, TRUE ~ 0),
+           grp2 = cumsum(grp2) + grp)
+  
+  hb_run_summary <- hb_run %>%
+    summarise_medians(observation_type = "Percentage") %>% 
+    filter(!is.na(median_label_display)) %>%
+    mutate(`Created On` = date_start) %>%
+    select(`Created On`, median_change_direction, median_change_pct_display, median_display, median_name_display, median_label_display)
+  
+  hb_run <- hb_run %>% left_join(hb_run_summary, by = "Created On") %>%
+    mutate(percent_nio = percent_nio/100,
+           median = median/100)
+}
+
+
+
 scot_run_plot <- ggplot(scot_run, aes(x = `Created On`)) +
   geom_line(data = scot_run %>% filter(is.na(month_exclude)), 
             aes(y=percent_nio, group = grp) , 
@@ -88,7 +200,7 @@ scot_run_plot <- ggplot(scot_run, aes(x = `Created On`)) +
             size= 2.5, nudge_y= -0.15, hjust = 0) +   
   geom_point(data = scot_run %>% filter(!(is.na(trend))),
                                         aes(y=percent_nio, group = 1), shape = 1, size = 3, colour = "#00b0f0") +
-  scale_y_continuous(limits=c(0, max(as.numeric(scot_run$percent_nio))+0.1*max(as.numeric(scot_run$percent_nio))), expand = c(0, 0), labels = percent) +
+  scale_y_continuous(limits=c(0, max(as.numeric(hb_run$percent_nio))+0.1*max(as.numeric(hb_run$percent_nio))), expand = c(0, 0), labels = percent) +
   xlab("Month") + ylab("Percent") +
   scale_x_date(breaks = seq(min(scot_run$`Created On`), max(scot_run$`Created On`), length.out = 20),
                limits = c(min(scot_run$`Created On`), max(scot_run$`Created On`)),
@@ -169,13 +281,14 @@ RunChartStatement_scot <- read_excel("RunChartStatement.xlsx") %>%
 
 #find if measure has improved/deteriorated/not changed and set main text for narrative
 if (scot_change_direction == "Decrease"){
-  scot_change_status = paste(RunChartStatement_scot, "More recently, from January 2020, Scotland has improved by", scot_percent_change,
+  scot_change_status = paste("In analysis from January 2020, Scotland has improved by", scot_percent_change,
                               "from", scot_start_base, "to a", scot_median_text, "median of", scot_current_base)
 } else if (scot_change_direction == "Increase"){
-  scot_change_status = paste(RunChartStatement_scot, "More recently, from January 2020, Scotland has deteriorated by", scot_percent_change,
+  scot_change_status = paste("In analysis from January 2020, Scotland has deteriorated by", scot_percent_change,
                               "from", scot_start_base, "to a", scot_median_text, "median of", scot_current_base)
 } else
-{ scot_change_status = paste(RunChartStatement_scot, "More recently in analysis from January 2020 there has been no change in the percentage 'not in order'") }
+{ scot_change_status = paste("In analysis from January 2020 there has been no change in the percentage 'not in order' with a baseline median of",
+                             scot_start_base) }
 
 
 #Flag if there is a sustained shift in the last 12 months
@@ -208,115 +321,7 @@ if(scot_change_direction == "Decrease" & sustained_flag > 1){
 
 # chart 2 board run chart -------------------------------------------------
 
-#set board run chart data
-#Aggregate to Board level
-dcrs_data_run <- dcrs_data %>%
-  filter(`Case Type` == "Standard") %>%
-  #Update start date when moving on a year
-  filter(`Created On` < end_date & `Created On` >= "2020-01-01") %>%  
-  filter(`Health Board` == Board) %>%
-  #Set all dates to the 1st of the month to group by month
-  mutate(`Created On` = floor_date(`Created On`, "month")) %>%
-  group_by(`Created On`, `Health Board`) %>%
-  summarise(total_in_order = sum(`Case Status` == "Case in Order"),
-            total_not_in_order = sum(`Case Status` == "Case not in Order")
-            , .groups = "rowwise") %>%
-  #Dates to exclude due to reduction of DCRS service during pandemic
-  mutate(month_exclude = case_when((`Created On` >= "2020-03-01" & `Created On` <= "2020-08-01") |
-                                     (`Created On` >= "2020-11-01" & `Created On` <= "2021-05-01") |
-                                     (`Created On` >= "2021-10-01" & `Created On` <= "2022-03-01") |
-                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ "skip"),
-         case_total = (total_in_order + total_not_in_order),
-         percent_nio = (total_not_in_order / case_total*100),
-         percent_nio = case_when(percent_nio >= 0 ~ percent_nio, TRUE ~ 0))
 
-#Add April 2020 point as no data was collected during this month
-apr_data <- head(dcrs_data_run, 1) %>%
-  mutate(`Health Board` = Board,
-         `Created On` = "2020-04-01", 
-         total_in_order = 0, 
-         total_not_in_order = 0, 
-         month_exclude = "skip", 
-         case_total = 0, 
-         percent_nio = 0)
-
-#Combine April point with the dataset
-dcrs_data_run <- rbind(dcrs_data_run, apr_data)
-
-
-#r set board run chart data quarter (for boards on quarterly aggregates)
-
-dcrs_data_run_quarter <- dcrs_data %>%
-  filter(`Case Type` == "Standard") %>%
-  #Update start date when moving on a year
-  filter(`Created On` < end_date & `Created On` >= "2020-01-01") %>%  
-  filter(`Health Board` == Board) %>%
-  #Set all dates to the 1st of the quarter to group by quarter
-  mutate(`Created On` = floor_date(`Created On`, "quarter")) %>%
-  group_by(`Created On`, `Health Board`) %>%
-  summarise(total_in_order = sum(`Case Status` == "Case in Order"),
-            total_not_in_order = sum(`Case Status` == "Case not in Order")
-            , .groups = "rowwise") %>%
-  #Dates to exclude due to reduction of DCRS service during pandemic
-  mutate(month_exclude = case_when((`Created On` >= "2020-03-01" & `Created On` <= "2022-03-01") |
-                                     (`Created On` >= "2023-01-01" & `Created On` <= "2023-03-01") ~ "skip"),
-         case_total = (total_in_order + total_not_in_order),
-         percent_nio = (total_not_in_order / case_total*100))
-
-
-#board run chart
-
-#If quarterly analysis then source and run the quarterly run chart function, else source and run the monthly run chart function
-if(Board == "Borders" | Board == "Dumfries and Galloway"){
-
-  #Run chart analysis using the quarterly runchart function  
-  hb_run <- make_runchart(
-    dcrs_data_run_quarter,
-    observation = "percent_nio",
-    date = "Created On",
-    specs = "month_exclude",
-    baselinepts = 12,
-    temporarypts = 9,
-    onmedian = 0.01
-  ) %>%
-    mutate(grp = c(0,cumsum(abs(diff(is.na(month_exclude))))),  #add groupings required for line breaks
-           grp2 = case_when(median_name != lag(median_name) ~ 1, TRUE ~ 0),
-           grp2 = cumsum(grp2) + grp)
-  
-  hb_run_summary <- hb_run %>%
-    summarise_medians(observation_type = "Percentage") %>% 
-    filter(!is.na(median_label_display)) %>%
-    mutate(`Created On` = date_start) %>%
-    select(`Created On`, median_change_direction, median_change_pct_display, median_display, median_name_display, median_label_display)
-  
-  hb_run <- hb_run %>% left_join(hb_run_summary, by = "Created On") %>%
-    mutate(percent_nio = percent_nio/100,
-           median = median/100)
-} else {
-  
-  hb_run <- make_runchart(
-    dcrs_data_run,
-    observation = "percent_nio",
-    date = "Created On",
-    specs = "month_exclude",
-    baselinepts = 12,
-    temporarypts = 9,
-    onmedian = 0.01
-  ) %>%
-    mutate(grp = c(0,cumsum(abs(diff(is.na(month_exclude))))),  #add groupings required for line breaks
-           grp2 = case_when(median_name != lag(median_name) ~ 1, TRUE ~ 0),
-           grp2 = cumsum(grp2) + grp)
-  
-  hb_run_summary <- hb_run %>%
-    summarise_medians(observation_type = "Percentage") %>% 
-    filter(!is.na(median_label_display)) %>%
-    mutate(`Created On` = date_start) %>%
-    select(`Created On`, median_change_direction, median_change_pct_display, median_display, median_name_display, median_label_display)
-  
-  hb_run <- hb_run %>% left_join(hb_run_summary, by = "Created On") %>%
-    mutate(percent_nio = percent_nio/100,
-           median = median/100)
-  }
 
 #dynamic chart title for mothly/quarterly analysis
 chart_title <-   if(Board == "Borders" | Board == "Dumfries and Galloway") {
@@ -391,11 +396,20 @@ hb_current_base <- hb_run_summary %>%
   pull(median_display)
 
 #find beaseline median
+if(Board == "Borders" | Board == "Dumfries and Galloway"){
 hb_start_base2 <- hb_run %>%
   filter(`Created On` != "2020-04-01",
-    `grp2` == 0,
+    `grp2` == 1,
     !is.na(median_note != "na")) %>%
   pull(median)
+} else {
+  hb_start_base2 <- hb_run %>%
+    filter(`Created On` != "2020-04-01",
+           `grp2` == 0,
+           !is.na(median_note != "na")) %>%
+    pull(median)
+}
+
 
 #find current median
 hb_current_base2 <- hb_run %>%
@@ -435,13 +449,14 @@ if(hb_count_median < 12){
 if(Board == "Western Isles" | Board == "Shetland" | Board == "Orkney" | Board == "National Golden Jubilee"){
   hb_change_status = "The board reports very small numbers of certificates 'not in order' so a board level run chart cannot be produced"
 } else if (hb_start_base2 > hb_current_base2){
-  hb_change_status = paste(RunChartStatement, "More recently in analysis from January 2020 the board has improved by", hb_percent_change,
+  hb_change_status = paste("In analysis from January 2020 the board has improved by", hb_percent_change,
                               "from", hb_start_base, "to a", hb_median_text, "median of", hb_current_base)
 } else if (hb_start_base2 < hb_current_base2){
-  hb_change_status = paste(RunChartStatement, "More recently in analysis from January 2020 the board has deteriorated by", hb_percent_change,
+  hb_change_status = paste("In analysis from January 2020 the board has deteriorated by", hb_percent_change,
                               "from", hb_start_base, "to a", hb_median_text, "median of", hb_current_base)
 } else
-{ hb_change_status = paste(RunChartStatement, "More recently in analysis from January 2020 there has been no change in the percentage 'not in order'") }
+{ hb_change_status = paste("In analysis from January 2020 there has been no change in the percentage 'not in order' with a baseline median of", 
+                           hb_start_base) }
 
 #Flag if there is a sustained shift in the last 12 months
 sustained_flag <- hb_run %>%
@@ -463,13 +478,13 @@ shift_flag <- hb_run %>%
 if(Board == "Western Isles" | Board == "Shetland" | Board == "Orkney" | Board == "National Golden Jubilee"){
   hb_new_change_status = ""
 } else if (hb_start_base2 > hb_current_base2 & sustained_flag > 1){
-  hb_new_change_status = "The board has seen recent improvement with a new median below the baseline."
+  hb_new_change_status = "The run chart shows that MCCDs 'not in order' have seen recent improvement with a new median below the baseline."
 } else if (hb_start_base2 < hb_current_base2 & sustained_flag > 1){
-  hb_new_change_status = "The board has seen recent deterioration with a new median above the baseline."
+  hb_new_change_status = "The run chart shows that MCCDs 'not in order' have seen recent deterioration with a new median above the baseline."
 } else if (shift_flag == -1){
-  hb_new_change_status = "The board has also seen signs of improvement with an ongoing shift above the current median."
+  hb_new_change_status = "The run chart shows that MCCDs 'not in order' have also seen signs of improvement with an ongoing shift above the current median."
 } else if (shift_flag == 1){
-  hb_new_change_status = "The board has also seen signs of deterioration with an ongoing shift above the current median."
+  hb_new_change_status = "The run chart shows that MCCDs 'not in order' have also seen signs of deterioration with an ongoing shift above the current median."
 } else
 { hb_new_change_status = "" }
 

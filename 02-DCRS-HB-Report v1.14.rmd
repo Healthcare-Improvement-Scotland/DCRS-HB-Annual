@@ -28,6 +28,7 @@ library(tiff)
 library(DescTools)
 library(hisrunchart)
 library(ggrepel)
+library(ggpubr)
 
 ```
 
@@ -47,6 +48,13 @@ cover2 <-
     font.family = "Calibri light",
     bold = TRUE,
     font.size = 20
+  )
+cover3 <-
+  fp_text_lite(
+    color = "red",
+    font.family = "Calibri light",
+    italic = TRUE,
+    font.size = 12
   )
 ```
 
@@ -78,6 +86,7 @@ source("06-Part3 FunnelPlots2.R")
 source("07-Part4 Charts.R")
 source("10-Table Text Extract.R")
 source("10-Bar Chart Text Extract.R")
+source("12-SummaryText.R")
 
 ```
 
@@ -186,13 +195,21 @@ block_toc()
 
 # **About this report**
 
+<br>
+
+`r ftext("This information has been released for management information purposes only. The data has not been adjusted to protect against potential disclosure risks and may contain information which enables an individual or member of staff to be identified. Please ensure circulation is restricted.", cover3)`
+
+<br>
+
 Under section 20(2) of the Certification of Death (Scotland) Act 2011^1^ , the Death Certification Review Service medical review has a statutory duty to -
 
 - collate and analyse information relating to or contained in medical certificates of cause of death (MCCD)
 
 - provide training, guidance and support to persons who are required to complete medical certificates of cause of death and liaise with such persons as the medical reviewer considers appropriate with a view to improving the accuracy of the information (and in particular the causes of death) recorded in medical certificates of cause of death.
 
-This report provides a summary of information about death certification reviews registered within your Health Board. The majority of this report has been prepared on cases received between `r year3`, with occasional analysis also using data going back to January 2019.  
+This report provides a summary of information about death certification reviews registered within your Health Board. The majority of this report has been prepared on cases received between `r year3`, with occasional analysis also using data going back to January 2020.
+
+<br>
 
 **Notes:**
 
@@ -200,11 +217,8 @@ This report provides a summary of information about death certification reviews 
 - Service Level Agreement for completion of reviews is 24 hours for Level 1 and 3 working days for Level 2
 - Occasionally Level 1 reviews may be escalated to Level 2, and this may result in the re-issue of an MCCD.  A reissue is needed if a change is required and certifying doctor is not available, there is an error in hazards, or there is a significant error in the case
 - MCCDs can be closed with more than one closure category as a reason why the case is 'not in order'
-- Run chart analysis will only review a maximum of the latest six years starting from January 2020. This will be a rolling six years so for example in reports for the 2026/2027 periods, run chart analysis will start from January 2021. 
-
-<br>
-
-<br>
+- Run chart analysis will only review a maximum of the latest six years starting from January 2020. This will be a rolling six years. 
+- Details of analysis used on the data through the report are given in appendix 1
 
 <br>
 
@@ -233,54 +247,7 @@ This report provides a summary of information about death certification reviews 
 ------
 ^1^ [Certification of Death (Scotland) Act 2011 (legislation.gov.uk)](https://www.legislation.gov.uk/asp/2011/11/crossheading/other-functions-of-medical-reviewers)
 
-
-# **Interpreting the data**
-
-This report uses run charts, funnel plots and confidence intervals to help us determine if the variation we see is normal (random variation) or is out of the ordinary, and to be explored further (non-random variation). 
-
-<br>
-
-**Run charts**\
-Run charts are used as the main analysis method for identifying variation over time. Run charts give a probability based indication of when data changes by highlighting unusual patterns around a median. The median is the middle point of a group of numbers. In run charts we set a baseline median using the first twelve stable data points. We then extend the median forward and use it to look at patterns in the data. The median and extended median are the orange solid and dotted lines in the run charts.
-
-Unusual patterns in the data include:
-
-- A run of **6 consecutive points** above or below the median (yellow data points) - this is a sign of change (of non-random variation)
-
-- A run of **9 or more points** above or below the median – this is a sustained change (a sign of non-random variation) and new medians are calculated.  
-
-**'Current temporary median'** is where there are too few data points to create a stable 12 point median but enough to signal a shift in the median. (For quarterly data 8 data points are used for initial median and any further medians)
-
-During the Coronavirus pandemic, the service introduced variable MCCD selection rate where Hybrid level 1 review process was put in place. Hybrid level 1 includes a review of the MCCD, patient KIS and discussion with the certifying doctor. Since these were a break from 'usual' service levels the data from this period could not be analysed, with these shown as grey dots on the run charts and with the medians paused
-
-<br>
-
-**Funnel plots**\
-A funnel chart is a scatter plot with funnel shaped boundary lines.  These lines (or limits) distinguish non-random variation from random variation. The lines are wider where the area of interest (in this case the number of reviews) is smaller to account for wider variation with smaller numbers. Individual NHS boards’ percentage of cases 'not in order' varies around the Scottish average. The funnel chart is used in this report to show the extent to which each board differs statistically from the Scottish average, taking account of the number of cases for each board.
-
-The inner limits are called warning limits, and the upper limits are called control limits. Data points which fall between the upper warning limits and upper control limit are considered high or low compared to the average, but are not significantly statistically different from the average.  Data points which fall out with the control limit are considered statistically different from the average and are non-random variation.
-
-<br>
-
-**Confidence intervals**\
-Confidence intervals are used in bar charts and tables to test the significance of the difference between proportions from the latest years data points, and the previous years.  Significant differences identified are signaled with a "*" next to the proportion in the bar chart or table.  A methodology known as Miettinen & Nurminen has been used which:
-
-  - assumes that data is binomial (that it comes from two independent distributions, it covers a fixed number of trials, it has only two possible outcomes (success or failure), and that it is a constant probability of success)
-  
-  - will not cover cases where the denominator is very small (<30)
-  
-  - is also not suitable to use when reviewing whole numbers or rates
-
-\newpage
-# **Key Messages**
-
-<br>
-
-**Significant Outcomes**
-
-- `r key_message`
-`r sig_change_message`
-`r hosp_change_message`
+# **DCRS Notes**
 
 <br>
 
@@ -301,8 +268,33 @@ We continue to work with NHS Lothian, and they hope to be in a position to take 
 **Important – Hospital notes**
 
 Following feedback from our Medical Reviewer Assistants, we have identified an increase in the number of reviews being delayed due to medical notes not being available on wards for doctors. We would ask if consideration could be given as to how quickly medical notes are removed from wards and sent for scanning as the delay in the doctors being able to carry out the reviews can impact on the family being able to proceed with funeral arrangements.
- 
 
+\newpage
+
+# **Key Messages**
+
+<br>
+
+![](Charts/pie_all.png) ![](Charts/pie_total.png)
+
+![](Charts/pie_io.png) ![](Charts/pie_mccd.png)
+
+<br>
+
+**Significant Signals in Analysis**
+
+- `r key_message`
+`r table2_sig_sum`
+`r table3_sig_sum`
+`r table4_sig_sum`
+`r closure_sig_sum`
+`r cause_sig_sum`
+`r admin_sig_sum`
+`r pf_sig_sum`
+`r enquiry_sig_sum`
+`r hosp_sig`
+`r hospice_sig`
+`r diag_sig`
 
 ```{r}
 block_section(
@@ -320,8 +312,8 @@ block_section(
 - A total of `r Scot_total` cases were received in Scotland in the period.  *Table 1* shows the case type breakdown
 - `r io_percent_scot` of these were found to be in order. *Table 2*
 - Of the `r nio_total_scot` (`r nio_percent_scot`) 'not in order' cases, `r email_total_scot` (`r email_percent_scot`)  required email amendments and `r mccd_total_scot` (`r mccd_percent_scot`) required replacement MCCDs. *Table 2*
-- `r pf_percent_scot` of cases were reported to the Procurator Fiscal
   `r scot_table2_sig`
+- `r pf_percent_scot` of cases were reported to the Procurator Fiscal
 - `r emccd_percent_scot` of MCCDs were received electronically and `r mccd_percent_scot2` on paper. *Table 3*
   `r scot_table3_sig`
 
@@ -334,8 +326,8 @@ block_section(
 - A total of `r board_total` cases were received by the Board in the period.  *Table 1* shows the case type breakdown
 - `r io_percent` of these were found to be in order. *Table 2*
 - Of the `r nio_total` (`r nio_percent`) 'not in order' cases, `r email_total` (`r email_percent`)  required email amendments and `r mccd_total` (`r mccd_percent`) required replacement MCCDs. *Table 2*
-- `r pf_percent` of cases were reported to the Procurator Fiscal
   `r hb_table2_sig`
+- `r pf_percent` of cases were reported to the Procurator Fiscal
 - `r emccd_percent` of MCCDs were received electronically and `r mccd_percent2` on paper. *Table 3*
   `r hb_table3_sig`
 
@@ -361,10 +353,10 @@ dcrs_table2
 **Scotland**
 
 - `r total_breach_percent_scot` of reviewed cases breached SLA timescales, `r cd_breach_percent_scot` of which were due to the Certifying Doctor being unavailable and `r other_breach_percent_scot` due to other reasons. *Table 4*. 
-  + 'Other' mainly consists of DCRS delays (`r dcrs_delay_percent_scot`), or delays in receiving information (`r delay_percent_scot`).
   `r scot_table4_sig`
+  + 'Other' mainly consists of delays in receiving information (`r delay_percent_scot`), or DCRS delays (`r dcrs_delay_percent_scot`). *NB this data is not presented*
 - The number of cases escalated from level 1 to level 2 was `r esc_level_scot` (`r esc_level_percent_scot`). *Table 5*.  
-  + The main reason for escalation was '`r top_esc_scot`' at `r top_esc_percent_scot` of all escalated cases.
+  + The main reason for escalation was '`r top_esc_scot`' at `r top_esc_percent_scot` of all escalated cases. *NB this data is not presented*
 
 <br>
 
@@ -373,10 +365,10 @@ dcrs_table2
 **`r Board`**
 
 - `r total_breach_percent` of reviewed cases breached SLA timescales, `r cd_breach_percent` of which were due to the Certifying Doctor being unavailable and `r other_breach_percent` due to other reasons. *Table 4*. 
- +  'Other' mainly consists of DCRS delays (`r dcrs_delay_percent`), or delays in receiving information (`r delay_percent`).
   `r hb_table4_sig`
+  + 'Other' mainly consists of delays in receiving information (`r delay_percent`), or DCRS delays (`r dcrs_delay_percent`). *NB this data is not presented*
 - The number of cases escalated from level 1 to level 2 was `r esc_level` (`r esc_level_percent`). *Table 5*. 
- +  The main reason for escalation was '`r top_esc`' at `r top_esc_percent` of all escalated cases.
+  + The main reason for escalation was '`r top_esc`' at `r top_esc_percent` of all escalated cases. *NB this data is not presented*
 
 `r officer::run_columnbreak()`
 ```{r table 4, ft.align="left"}
@@ -396,7 +388,7 @@ block_section(
   prop_section(
     page_size = page_size(orient = "landscape"), type = "continuous",
     page_margins = page_mar(left = 0.15, top = 0.7, bottom = 0.7),
-    section_columns = section_columns(widths = c(4.2, 6.3), space = 0.2, sep = TRUE)
+    section_columns = section_columns(widths = c(4.0, 6.5), space = 0.2, sep = TRUE)
   )
 )
 ```
@@ -415,6 +407,10 @@ block_section(
 
 - `r scot_change_status`. `r scot_new_change_status` *Chart 1*
 
+- `r RunChartStatement_scot` *NB this data is not presented*
+
+<br>
+
 <br>
 
 <br>
@@ -430,6 +426,8 @@ block_section(
 **`r Board`**
 
 - `r hb_change_status`. `r hb_new_change_status` *Chart 2*
+
+- `r RunChartStatement` *NB this data is not presented*
 
 `r officer::run_columnbreak()`
 
@@ -458,6 +456,12 @@ block_section(
 # **NHS Board Comparators**
 
 - A funnel plot of the percentage of MCCDs 'not in order' for randomised cases indicates that NHS `r Board` is  `r nio_outliers`. *Chart 3*
+
+<br>
+
+<br>
+
+<br>
 
 <br>
 
@@ -516,9 +520,9 @@ block_section(
 ```
 # **Service Data Breakdown**
 
-- `r closure_nio` of all MCCDs 'not in order' had at least one clinical closure category recorded, with the most common categor`r closure_value1` being `r max_closure_name`, `r closure_value2` at `r max_closure_value`. `r care_breakdown_text` *Chart 5*
-  `r hb_closure_sig`
+- During `r year3`, `r closure_nio` of all MCCDs 'not in order' had at least one clinical closure category recorded, with the most common categor`r closure_value1` being `r max_closure_name`, `r closure_value2` at `r max_closure_value`. `r care_breakdown_text` *Chart 5*
   `r scot_closure_sig`
+  `r hb_closure_sig`
   
 <br>
 
@@ -530,9 +534,11 @@ block_section(
 
 <br>
 
+<br>
+
 - Of the cases recorded as 'cause of death too vague', `r max_vague_value` were due to `r max_vague_name`, and `r max_vague_value2` were due to `r max_vague_name2`. *Chart 6*
-  `r hb_cause_sig`
   `r scot_cause_sig`
+  `r hb_cause_sig`
 
 `r officer::run_columnbreak()`
 ```{r, fig.width=6,fig.height=3.1} 
@@ -578,8 +584,8 @@ block_section(
 )
 ```
 - `r closure_admin_nio` of all MCCDs 'not in order'  had at least one administrative closure category recorded, with the most common categor`r admin_value1` being `r max_admin_name`, `r admin_value2` at `r max_admin_value`. *Chart 7*
-  `r hb_admin_sig`
   `r scot_admin_sig`
+  `r hb_admin_sig`
 
 <br>
 
@@ -603,9 +609,13 @@ block_section(
 
 <br>
 
-- Due to the certifying doctor not following COPFS/CMO guidance the service recommended `r total_PF` deaths were subsequently reported to the PF. `r max_PF_value` were due to `r max_PF_name`, and `r max_PF_value2` due to `r max_PF_name2`. *Chart 8*   
-  `r hb_pf_sig`
+<br>
+
+<br>
+
+- Due to the certifying doctor not following COPFS/CMO^[https://www.copfs.gov.uk/publications/reporting-deaths/] guidance the service recommended `r total_PF` deaths were subsequently reported to the PF. `r max_PF_value` were due to `r max_PF_name`, and `r max_PF_value2` due to `r max_PF_name2`. *Chart 8*   
   `r scot_pf_sig`
+  `r hb_pf_sig`
 
 `r officer::run_columnbreak()`
 ```{r, fig.width=6,fig.height=3.1} 
@@ -615,6 +625,7 @@ dcrs_closure_plot_admin +
         plot.title.position = "plot") 
 
 ```
+
 
 ```{r, fig.width=6,fig.height=3.1} 
 
@@ -641,9 +652,9 @@ block_section(
   )
 )
 ```
-- During the period there have been `r total_enquiry` calls from NHS `r Board` made to the enquiry line.  There were `r max_enquiry_number` calls (`r max_enquiry_value`) seeking `r max_enquiry_name` which was the majority to the enquiry line, and `r max_enquiry_number2` (`r max_enquiry_value2`) seeking `r max_enquiry_name2`. *Chart 9*
-  `r hb_enquiry_sig`
+- During the period there have been `r total_enquiry` calls from NHS `r Board` to the enquiry line.  There were `r max_enquiry_number` calls (`r max_enquiry_value`) seeking `r max_enquiry_name`, and `r max_enquiry_number2` (`r max_enquiry_value2`) seeking `r max_enquiry_name2`. *Chart 9*
   `r scot_enquiry_sig`
+  `r hb_enquiry_sig`
 
 <br>
 
@@ -786,7 +797,7 @@ block_section(
 ```
 # **Cause of Death Summary**
 
-- Of the `r nio_total` cases 'not in order' at NHS `r Board` during `r year3`, the main cause of death recorded was `r top_cause_name` with `r top_cause_number` cases.  `r top_cause_place_percentage` of these occurred at `r top_cause_place`. *Chart 11*
+- Of the `r nio_total` cases 'not in order' at NHS `r Board` during `r year3`, the main cause of death recorded was `r top_cause_name` with `r top_cause_number` cases.  `r top_cause_place_percentage` of these occurred at `r top_cause_place`. *Chart 12*
 `r diag_sig`
 
 `r officer::run_columnbreak()`
@@ -810,7 +821,50 @@ block_section(
   )
 )
 ```
-# **Appendix 1 – Hybrid Reviews**
+
+# **Appendix 1 – Interpreting the data**
+
+This report uses run charts, funnel plots and confidence intervals to help us determine if the variation we see is normal (random variation) or is out of the ordinary, and to be explored further (non-random variation). 
+
+<br>
+
+**Run charts**\
+Run charts are used as the main analysis method for identifying variation over time. Run charts give a probability based indication of when data changes by highlighting unusual patterns around a median. The median is the middle point of a group of numbers. In run charts we set a baseline median using the first twelve stable data points for monthly data and eight for quarterly data. We then extend the median forward and use it to look at patterns in the data. The median and extended median are the orange solid and dotted lines in the run charts.
+
+Unusual patterns in the data include:
+
+- A run of **6 consecutive points** above or below the median (yellow data points) - this is a sign of change (of non-random variation)
+
+- A run of **9 or more points** above or below the median – this is a sustained change (a sign of non-random variation) and new medians are calculated.  
+
+**'Current temporary median'** is where there are too few data points to create a stable 12 point median but enough to signal a shift in the median.
+
+During the Coronavirus pandemic, the service introduced variable MCCD selection rate where Hybrid level 1 review process was put in place. Hybrid level 1 includes a review of the MCCD, patient KIS and discussion with the certifying doctor. Since these were a break from 'usual' service levels the data from this period could not be analysed, with these shown as grey dots on the run charts and with the medians paused
+
+<br>
+
+**Funnel plots**\
+A funnel chart is a scatter plot with funnel shaped boundary lines.  These lines (or limits) distinguish non-random variation from random variation. The lines are wider where the area of interest (in this case the number of reviews) is smaller to account for wider variation with smaller numbers. Individual NHS boards’ percentage of cases 'not in order' varies around the Scottish average. The funnel chart is used in this report to show the extent to which each board differs statistically from the Scottish average, taking account of the number of cases for each board.
+
+The inner limits are called warning limits, and the upper limits are called control limits. Data points which fall between the upper warning limits and upper control limit are considered high or low compared to the average, but are not significantly statistically different from the average.  Data points which fall out with the control limit are considered statistically different from the average and are non-random variation.
+
+<br>
+
+**Confidence intervals**\
+Confidence intervals are used in bar charts and tables to test the significance of the difference between proportions from the latest years data points, and the previous years.  Significant differences identified are signaled with a "*" next to the proportion in the bar chart or table.  A methodology known as Miettinen & Nurminen has been used which:
+
+  - assumes that data is binomial (that it comes from two independent distributions, it covers a fixed number of trials, it has only two possible outcomes (success or failure), and that it is a constant probability of success)
+  
+  - will not cover cases where the denominator is very small (<10)
+  
+  - is also not suitable to use when reviewing whole numbers or rates
+
+^ denotes a significant increase
+
+v denotes a significant decrease
+
+
+# **Appendix 2 – Hybrid Reviews**
 During the Coronavirus pandemic, the service introduced variable MCCD selection rate where Hybrid level 1 review process was put in place.  The service resumed normal selection rate and review process from 20 March 2023.
 
 Hybrid level 1 review includes a review of the MCCD, patient KIS and discussion with the certifying doctor. It should be noted that during the height of the pandemic where the MCCD was substantially ‘in order’ the Medical Reviewer could close the case ‘in order’ accepting minor errors. These minor errors, which under normal review would be deemed as ‘not in order’ include but are not limited to; absence of clinical durations, histology/ tumour or stroke site and bacteriology.

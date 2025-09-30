@@ -303,34 +303,34 @@ sig_flag_down <- dcrs_data_wranlge_ps %>%
 #Add caption to chart if significant change is identified
 # update year references --------------------------------------------------
 chart_lab <- if (sig_flag_both >= 1) {
-  labs(title = paste0("Chart 5: Breakdown of clinical closure categories ‘not in order’ for years ", y1, ", ", y2, " and ", y3, " by \nprimary and secondary care"),   #set titles
+  labs(title = paste0("Chart 5: Breakdown of clinical closure categories ‘not in order’ for years ", y1, ", ", y2, " and ", y3, " by \nprimary and secondary care NHS ", Board),   #set titles
        caption = "*^ significant increase from previous year \n *v significant decrease from previous year", #Caption if significant change is identified
        y = "",
        x = "Note: Year 8 - 2022/23     Year 9 - 2023/24     Year 10 - 2024/25")
 } else if (sig_flag_up >= 1) { 
-  labs(title = paste0("Chart 5: Breakdown of clinical closure categories ‘not in order’ for years ", y1, ", ", y2, " and ", y3, " by \nprimary and secondary care"),   #set titles
+  labs(title = paste0("Chart 5: Breakdown of clinical closure categories ‘not in order’ for years ", y1, ", ", y2, " and ", y3, " by \nprimary and secondary care NHS ", Board),   #set titles
        caption = "*^ significant increase from previous year", #Caption if significant change is identified
        y = "",
        x = "Note: Year 8 - 2022/23     Year 9 - 2023/24     Year 10 - 2024/25")
 } else if (sig_flag_down >= 1) {
-  labs(title = paste0("Chart 5: Breakdown of clinical closure categories ‘not in order’ for years ", y1, ", ", y2, " and ", y3, " by \nprimary and secondary care"),   #set titles
+  labs(title = paste0("Chart 5: Breakdown of clinical closure categories ‘not in order’ for years ", y1, ", ", y2, " and ", y3, " by \nprimary and secondary care NHS ", Board),   #set titles
        caption = "*v significant decrease from previous year", #Caption if significant change is identified
        y = "",
        x = "Note: Year 8 - 2022/23     Year 9 - 2023/24     Year 10 - 2024/25")
 } else {
-  labs(title = paste0("Chart 5: Breakdown of clinical closure categories ‘not in order’ for years ", y1, ", ", y2, " and ", y3, " by \nprimary and secondary care"),   #set titles
+  labs(title = paste0("Chart 5: Breakdown of clinical closure categories ‘not in order’ for years ", y1, ", ", y2, " and ", y3, " by \nprimary and secondary care NHS ", Board),   #set titles
        y = "",
        x = "Note: Year 8 - 2022/23     Year 9 - 2023/24     Year 10 - 2024/25")
 }
 
 dcrs_closure_ps_plot <- ggplot(dcrs_data_wranlge_ps, aes(Year, closure_rate, fill = primary_secondary)) +
-  geom_col() +
+  geom_col(width = 0.96) +
   facet_wrap(~ fct_reorder(closure_category, total_rate_rank), strip.position = "bottom", nrow = 1) +
   scale_y_continuous(expand=c(0, 0), limits=c(0, max(dcrs_data_wranlge_ps$total_rate)+0.02),
                      labels = scales::percent_format(accuracy = 1)) +  #set percentage
   chart_lab +
   scale_fill_manual(values = c("#143965", "#8BB5E8")) +
-  geom_text(aes(label=closure_percent), size = 2, colour = "white", position = position_stack(vjust = .5)) +
+  geom_text(aes(label=closure_percent), size = 2.5, colour = "white", position = position_stack(vjust = .5)) +
   theme_bw() +
   theme(axis.line = element_line(colour = "black"),
         axis.text.x = element_text(vjust = 0.5, hjust=0.2),
@@ -693,7 +693,8 @@ if (HB_n1 > 0 & HB_n2 > 0 ) {  #CI test only works when both denominators are gr
        subtitle = year3,
        y = "",
        x = "")
-} 
+} else { PF_data_wrangle <- data.frame(hb = "Board", total_report_to_pf = NA, pf_rate = NA, pf_percent = NA)%>%
+  rename(`Health Board` = 'hb') }
 
 if (HB_n2 >0) {  #only create chart if there are cases for the current year
 #Find cases with no data to be filtered out
@@ -757,9 +758,8 @@ ggsave(dcrs_PF_plot,
 ##enquiry line chart 9##
 
 #extract current and previous year denominator to use in CI test
-if (Board == "National Golden Jubilee") {HB_n1 =0} else {
+
 HB_n1 <- dcrs_data_enquiry_all %>% select(Year, `Health Board`, enquiry_category_total) %>% filter(Year == 2, `Health Board` == "Board") %>% pull(enquiry_category_total)
-}
 HB_n2 <- dcrs_data_enquiry_all %>% select(Year, `Health Board`, enquiry_category_total) %>% filter(Year == 3, `Health Board` == "Board") %>% pull(enquiry_category_total)
 Scot_n1 <- dcrs_data_enquiry_all %>% select(Year, `Health Board`, enquiry_category_total) %>% filter(Year == 2, `Health Board` == "Scotland") %>% pull(enquiry_category_total)
 Scot_n2 <- dcrs_data_enquiry_all %>% select(Year, `Health Board`, enquiry_category_total) %>% filter(Year == 3, `Health Board` == "Scotland") %>% pull(enquiry_category_total)
@@ -961,6 +961,7 @@ hosp_ranking <- DCRS_Data_Hosp_chart %>%
   ungroup() %>%
   mutate(ranking = rank(desc(case_total)),
          ranking = case_when(ranking > 3 ~ 4,  #Find top 3 hospitals and set all others as "other" (request from DCRS)
+                             case_total < 10 ~ 4, #suppress any hospitals with a total of less than 10 (request from DCRS)
                              TRUE ~ ranking)) %>%
   arrange(desc(case_total)) %>% #Set order from highest to lowest ranked
   select(Locname, ranking)
@@ -1047,7 +1048,7 @@ max_value <- DCRS_Data_Hosp_chart2 %>% summarise(max_value = max(case_total)) %>
 
 ##create hospital bar chart 10##
 hosp_review_chart <- ggplot(DCRS_Data_Hosp_chart2, aes(YEAR, cases, fill=Review)) + 
-  geom_col() +
+  geom_col(width = 0.97) +
   facet_wrap(~ fct_reorder(Locname, ranking), strip.position = "bottom", nrow = 1) +
   scale_x_discrete(labels = function(Review) str_wrap(Review, width = 10)) + 
   chart_lab +
@@ -1237,7 +1238,7 @@ if (nrow(DCRS_Data_Hospice_chart2 != 0)) { #only create chart if there are cases
 
 ##create hospice bar chart 11##
 hospice_review_chart <- ggplot(DCRS_Data_Hospice_chart2, aes(YEAR, cases, fill=Review)) + 
-  geom_col() +
+  geom_col(width = 0.97) +
   facet_wrap(~ fct_reorder(Locname, ranking), strip.position = "bottom", nrow = 1) +
   scale_x_discrete(labels = function(Review) str_wrap(Review, width = 10)) + 
 # update year references --------------------------------------------------
@@ -1423,3 +1424,162 @@ ggsave(diag_chart,
 
 } else {"Not enough data"}  #create message if no chart is created to use place in the report
 
+
+
+###Create basic pie charts and summary narrative to use in the summary info graphic
+
+##Number of cases summary and proportion of Scotland total
+
+#Get HB and Scotland total for pie proportion
+hb <- dcrs_table_data_total %>% filter(event == "Total") %>% pull(`3_Board`)
+scot <- dcrs_table_data_total %>% filter(event == "Total") %>% pull(`3_Scotland`)
+scot_for_pie <- scot - hb #Remove HB total from Scotland total, so when both are shown on the pie the total add up to the Scotland total (correct HB proportion)
+
+#Create dataset for pie chart
+all_pie_data <- dcrs_data_total_all %>%
+  ungroup() %>%
+  filter(Year == 3) %>%
+  mutate(total_all = total_standard + total_interested + total_registrar + total_for_cause,
+         total_disp = case_when(`Health Board` == "Board" ~ hb, TRUE ~ scot_for_pie), #create column with correct levels to display segment correctly
+         percent_disp = case_when(`Health Board` == "Board" ~ percent(total_disp/sum(total_disp), accuracy = 0.1), TRUE ~ "")) %>%
+  select(`Health Board`, total_all, total_disp, percent_disp)
+
+board_percent <- all_pie_data %>% filter(`Health Board` == "Board") %>% pull(percent_disp) #pull percentage of Scotland total to use in summary narrative
+
+#Create basic pie chart with just segments
+pie_all <- ggplot(all_pie_data, aes(x = "", y = total_disp, fill = `Health Board`)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) + theme_void() +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("#A9D0F5", "#0F3D6B")) +
+  theme(legend.position = "none") 
+
+pie_all
+
+#Combine pie chart with summary text then save as image
+pie_all2 <- annotate_figure(pie_all, 
+                        right = text_grob(paste0("There were a total of ", hb, " cases from \n NHS ", Board, ", representing ", board_percent, " \n of the Scotland total \n
+                                                                                    "), 
+                                          color = "black", size = 11))
+pie_all2 
+
+ggsave(pie_all2, 
+       filename = "Charts/pie_all.png",
+       device = "png",
+       height = 1.5, width = 5, units = "in")
+
+
+
+
+total_pie_data <- dcrs_table_data_total %>%
+  filter(event != "Total") %>%
+  select(event, `3_Board`)
+
+total_pie_percent <- dcrs_table_data_total %>% filter(event == "total_standard") %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
+
+pie_total <- ggplot(total_pie_data, aes(x = "", y = `3_Board`, fill = event)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) + theme_void() +
+ # geom_text(aes(label = `3_Board`),
+  #          position = position_stack(vjust = 0.5), colour = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("#E3CEF6", "#097480", "#A9D0F5", "#0F3D6B")) +
+  theme(legend.position = "none") 
+
+pie_total
+
+pie_total2 <- annotate_figure(pie_total, 
+                            right = text_grob(paste0(total_pie_percent, " of cases were standard L1 and L2 \n 
+                                                                                    "), 
+                                              color = "black", size = 11))
+pie_total2 
+
+ggsave(pie_total2, 
+       filename = "Charts/pie_total.png",
+       device = "png",
+       height = 1.5, width = 5, units = "in")
+
+
+percent_io <- dcrs_table_data %>% filter(event == "total_in_order") %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
+percent_nio <- dcrs_table_data %>% filter(event == "total_not_in_order") %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
+percent_pf <- dcrs_table_data %>% filter(event == "total_report_to_pf") %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
+
+
+io_pie_data <- dcrs_table_data1 %>%
+  select(event, `3_Board`)
+
+pie_io <- ggplot(io_pie_data, aes(x = "", y = `3_Board`, fill = event)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) + theme_void() +
+#  geom_text(aes(label = `3_Board`),
+ #           position = position_stack(vjust = 0.5), colour = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("#0F3D6B", "#E3CEF6", "#A9D0F5")) +
+  theme(legend.position = "none") 
+
+pie_io
+
+if(percent_nio == "0.0%" & percent_pf == "0.0%") {
+  message <- paste0(percent_io, " of cases were 'in order' \n 
+                                                                                    ") 
+} else if(percent_pf == "0.0%") {
+  message <- paste0(percent_io, " of cases were 'in order', \n and ", percent_nio, " were 'not in order' \n
+                                                                                    ") 
+} else if(percent_nio == "0.0%") {
+  message <- paste0(percent_io, " of cases were 'in order', \n and ", percent_pf, " were reported to PF \n
+                                                                                    ") 
+} else {
+  message <- paste0(percent_io, " of cases were 'in order', \n ", percent_nio, " were 'not in order', \n and ", percent_pf, " were reported to PF \n
+                                                                                    ") 
+}
+
+pie_io2 <- annotate_figure(pie_io, 
+                              right = text_grob(message, 
+                                                color = "black", size = 11))
+pie_io2 
+
+ggsave(pie_io2, 
+       filename = "Charts/pie_io.png",
+       device = "png",
+       height = 1.5, width = 5, units = "in")
+
+
+percent_emccd <- dcrs_table_data2 %>% filter(event == "total_emccd") %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
+percent_mccd <- dcrs_table_data2 %>% filter(event == "total_mccd") %>% mutate(HB_percent_year3 = gsub("\\*", "", HB_percent_year3)) %>% pull(HB_percent_year3)
+
+
+
+mccd_pie_data <- dcrs_table_data2 %>%
+  select(event, `3_Board`)
+
+pie_mccd <- ggplot(mccd_pie_data, aes(x = "", y = `3_Board`, fill = event)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) + theme_void() +
+ # geom_text(aes(label = `3_Board`),
+  #          position = position_stack(vjust = 0.5), colour = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("#0F3D6B", "#A9D0F5")) +
+  theme(legend.position = "none") 
+
+pie_mccd
+
+if(percent_emccd == "0.0%") {
+  message <- paste0(percent_mccd, " of cases were paper MCCDs \n
+                                                                                    ")
+} else if(percent_mccd == "0.0%") {
+  message <- paste0(percent_emccd, " of cases were electronic MCCDs \n
+                                                                                    ")
+} else {
+  message <- paste0(percent_emccd, " of cases were electronic MCCDs \n while ", percent_mccd, " were paper MCCDs \n
+                                                                                    ")
+}
+
+pie_mccd2 <- annotate_figure(pie_mccd, 
+                           right = text_grob(message, 
+                                             color = "black", size = 11))
+pie_mccd2 
+
+ggsave(pie_mccd2, 
+       filename = "Charts/pie_mccd.png",
+       device = "png",
+       height = 1.5, width = 5, units = "in")
